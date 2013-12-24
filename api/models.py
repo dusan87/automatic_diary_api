@@ -24,5 +24,8 @@ class AndroidUser(AbstractBaseUser):
         birth_day = models.DateField(default=datetime.date(2013, 2, 1), blank=True)
         objects = BaseUserManager()
 
+        def natural_key(self):
+            return self.username
+
         USERNAME_FIELD = 'username'
         REQUIRED_FIELDS = ['first_name', 'last_name', 'birth_day']
