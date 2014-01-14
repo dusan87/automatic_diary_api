@@ -13,7 +13,7 @@ def create_user(request):
         form = UserCreateForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
-            return HttpResponse('')
+            return HttpResponse(status=200)
         else:
             print form.error
             return StreamingHttpResponse(status=403)
@@ -45,12 +45,16 @@ def check_user(request):
                 return HttpResponse(status=200)
             return HttpResponse(status=403)
         return HttpResponse(status=403)
-    return HttpResponse('')
+    return HttpResponse(status=200)
 
 
 def all_users(request):
     if request.method == "GET":
-        users_data = [user for user in AndroidUser.objects.exclude(username=request.GET['username']) if user.image.__ne__('')]
+        username = request.GET['username']
+        user = AndroidUser.objects.get(username=username)
+        excluded_users =[follower.username for follower in user.follows.all()]
+        excluded_users.append(request.GET['username'])
+        users_data = [user for user in AndroidUser.objects.exclude(username__in=excluded_users) if user.image.__ne__('')]
         users_data = serializers.serialize('json', users_data, use_natural_primary_keys=True)
         users_data = json.loads(users_data)
         users = {'results': []}
@@ -60,4 +64,15 @@ def all_users(request):
             del user['fields']
         users = json.dumps(users)
         return HttpResponse(users, content_type="application/json")
-    return HttpResponse('')
+    return HttpResponse(status=200)
+
+
+def add_users_follow(request):
+    if request.method == "POST":
+        logged_username = request.POST['logged_username']
+        username = request.POST['friend_username']
+        followed_by = AndroidUser.objects.get(username=logged_username)
+        follower = AndroidUser.objects.get(username=username)
+        followed_by.add_follower(follower)
+        return HttpResponse(status=200)
+    return HttpResponse(status=200)

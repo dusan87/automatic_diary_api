@@ -8,5 +8,5 @@ from models import AndroidUser
 class UserCreateForm(UserCreationForm):
         class Meta:
             model = AndroidUser
-            fields = ['first_name', 'last_name', 'username', 'country', 'birth_day', 'city', 'image']
+            fields = ['first_name', 'last_name', 'username', 'country', 'birth_day', 'city', 'image', 'gender']
 
