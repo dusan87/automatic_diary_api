@@ -4,6 +4,12 @@ import datetime
 # Create your models here.
 
 
+class UserLocation(models.Model):
+
+    long = models.FloatField(blank=True)
+    lat = models.FloatField(blank=True)
+
+
 class AndroidUser(AbstractBaseUser):
 
     MALE = 'M'
@@ -21,6 +27,7 @@ class AndroidUser(AbstractBaseUser):
     gender = models.CharField(max_length=2, choices=GENDER, default=MALE, blank=True)
     birth_day = models.DateField(default=datetime.date(2013, 2, 1), blank=True)
     follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
+    location = models.ForeignKey(UserLocation, default='')
     objects = BaseUserManager()
 
     def natural_key(self):
@@ -32,5 +39,3 @@ class AndroidUser(AbstractBaseUser):
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'birth_day']
-
-

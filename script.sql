@@ -1,0 +1,10 @@
+DROP DATABASE IF EXISTS `ad_mysql`;
+CREATE DATABASE `ad_mysql`
+    DEFAULT CHARACTER SET utf8
+    DEFAULT COLLATE utf8_general_ci;
+
+USE 'ad_mysql';
+GRANT ALL PRIVILEGES ON ad_mysql.* TO 'root'@'localhost' IDENTIFIED BY 'dusan87'
+
+WITH GRANT OPTION;
+FLUSH PRIVILEGES;
