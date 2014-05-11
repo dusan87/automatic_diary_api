@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login
 from models import AndroidUser
 import json
 from django.core import serializers
+from map_methods import  near_by
 
 
 def create_user(request):
@@ -52,7 +53,7 @@ def all_users(request):
     if request.method == "GET":
         username = request.GET['username']
         user = AndroidUser.objects.get(username=username)
-        excluded_users =[follower.username for follower in user.follows.all()]
+        excluded_users = [follower.username for follower in user.follows.all()]
         excluded_users.append(request.GET['username'])
         users_data = [user for user in AndroidUser.objects.exclude(username__in=excluded_users) if user.image.__ne__('')]
         users_data = serializers.serialize('json', users_data, use_natural_primary_keys=True)
@@ -76,3 +77,38 @@ def add_users_follow(request):
         followed_by.add_follower(follower)
         return HttpResponse(status=200)
     return HttpResponse(status=200)
+
+
+def update_location(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        lat,lon = request.POST.get('lat', False), request.POST.get('long',False)
+        if username and lat and lon:
+            user = AndroidUser.objects.get(username=username)
+            user.add_location(latitude=lat,longitude=lon)
+            nearby_friends = near_by(user, lon= lon,lat=lat)
+            return HttpResponse(nearby_friends, content_type='application/json')
+        return HttpResponse(status=403)
+    return HttpResponse(status=403)
+
+
+def all_followers(request):
+    if request.method == "GET":
+        username = request.GET['username']
+        followers = {'results':[]}
+        if username:
+            user = AndroidUser.objects.get(username=username)
+            friends = [friend for friend in user.follows.all()]
+            locations = [friend.location for friend in friends]
+
+            friends = serializers.serialize('json',friends, use_natural_primary_keys=True)
+            friends = json.loads(friends)
+            for ind, friend in enumerate(friends):
+                friend['fields']['lat'], friend['fields']['long'] = str(locations[ind].lat), str(locations[ind].long)
+                del friend['fields']['location']
+                followers['results'].append(friend['fields'])
+
+            return HttpResponse(json.dumps(followers), content_type='application/json')
+        return HttpResponse(status=403, content="Dusan")
+    return HttpResponse(status=403)
+

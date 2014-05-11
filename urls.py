@@ -23,7 +23,9 @@ urlpatterns = patterns('',
     url(r'^login_user/$', 'api.views.login_user'),
     url(r'^check_user/$', 'api.views.check_user'),
     url(r'^all_users/$', 'api.views.all_users'),
-    url(r'^add_follower', 'api.views.add_users_follow'),
+    url(r'^add_follower/$', 'api.views.add_users_follow'),
+    url(r'^update_location/$', 'api.views.update_location'),
+    url(r'^friends_locations/$', 'api.views.all_followers'),
     (r'^media/(?P<path>.*)$', 'django.views.static.serve',
         {'document_root': settings.MEDIA_ROOT})
 )
