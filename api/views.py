@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate, login
 from models import AndroidUser
 import json
 from django.core import serializers
-from map_methods import  near_by
+from map_methods import near_by
 
 
 def create_user(request):
@@ -85,8 +85,9 @@ def update_location(request):
         lat,lon = request.POST.get('lat', False), request.POST.get('long',False)
         if username and lat and lon:
             user = AndroidUser.objects.get(username=username)
-            user.add_location(latitude=lat,longitude=lon)
-            nearby_friends = near_by(user, lon= lon,lat=lat)
+            if user.check_location(latitude=lat,longitude=lon):
+                user.add_location(latitude=lat,longitude=lon)
+            nearby_friends = near_by(user, lon=lon,lat=lat)
             return HttpResponse(nearby_friends, content_type='application/json')
         return HttpResponse(status=403)
     return HttpResponse(status=403)

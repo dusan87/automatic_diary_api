@@ -8,6 +8,8 @@ class UserLocation(models.Model):
 
     long = models.FloatField()
     lat = models.FloatField()
+    last_update = models.DateTimeField(auto_now_add=True, null=True)
+
 
 class AndroidUserManager(BaseUserManager):
 
@@ -60,11 +62,38 @@ class AndroidUser(AbstractBaseUser):
         if user not in self.follows.all():
             self.follows.add(user)
 
+    def check_location(self, latitude, longitude):
+        if self.location and self.location.lat == latitude and self.location.long == longitude:
+            return False
+        return True
+
     def add_location(self, latitude, longitude):
         location = UserLocation(lat=latitude,long=longitude)
         location.save()
         self.location = location
         self.save(update_fields=['location_id'])
+
+    def top_10_spending_time(self, period_start=datetime.datetime.utcfromtimestamp(0), period_end=datetime.datetime.now()):
+        interactions = UsersInteractions.objects.filter(first_user=self, type='together',start_time__gte=period_start,
+                                                        start_time__lte=period_end, end_time__isnull=False)
+        top10 = {'results': []}
+        friends = []
+        for i, interact in enumerate(interactions):
+
+            tmp = interact.second_user.username
+            total_time = (interact.end_time - interact.start_time).total_seconds()
+
+            if i + 1 < len(interactions):
+                for inter in interactions[i + 1:]:
+                    if inter.second_user.username == tmp and not tmp in friends:
+                        total_time += (inter.end_time - inter.start_time).total_seconds()
+
+            if not tmp in friends:
+                friends.append(tmp)
+                top10['results'].append({'username':tmp, 'total_time':total_time})
+
+        del friends
+        return top10
 
     def as_json_dict(self):
         return {
@@ -78,3 +107,16 @@ class AndroidUser(AbstractBaseUser):
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['first_name', 'last_name','country','city','gender','birth_day']
+
+
+class UsersInteractions(models.Model):
+
+    type = models.CharField(max_length=50)
+    first_user = models.ForeignKey(AndroidUser, related_name='first_user')
+    second_user = models.ForeignKey(AndroidUser, related_name='second_user', null=True)
+    location = models.ForeignKey(UserLocation)
+
+    start_time = models.DateTimeField(auto_now_add=True,blank=True)
+    end_time = models.DateTimeField(blank=True, null=True)
+
+    phone_number = models.CharField(max_length=50,blank=True, null=True)

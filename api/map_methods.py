@@ -2,8 +2,8 @@ __author__ = 'dusanristic'
 from math import radians, cos,sin,asin,sqrt
 from django.core.serializers import serialize
 import json
-from models import UserLocation
-
+from models import UserLocation, UsersInteractions, AndroidUser
+from datetime import datetime
 def distance(lon1,lat1,lon2,lat2):
     """
     Calculate the great circle distance between two points
@@ -26,6 +26,21 @@ def distance(lon1,lat1,lon2,lat2):
     return km
 
 
+def interaction(user, friend, interact_type, location, distance_km):
+
+    interact = UsersInteractions.objects.filter(first_user=user, second_user=friend, type=interact_type, end_time=None)
+
+    if len(interact) == 0 and distance_km <= 0.2:
+        new_interaction = UsersInteractions(first_user=user,second_user=friend, type=interact_type, location=location)
+        new_interaction.save()
+    elif len(interact) > 0 and distance_km <= 0.2:
+        interact[0].location = location
+        interact[0].save(update_fields=['location_id'])
+    elif len(interact) > 0 and distance_km > 0.2:
+        interact[0].end_time = datetime.now()
+        interact[0].save(update_fields=['end_time'])
+
+
 def near_by(user,lon,lat):
 
     nearby = {'results': []}
@@ -38,9 +53,18 @@ def near_by(user,lon,lat):
             location = UserLocation.objects.get(id=friend['fields']['location'])
             distance_km = distance(lon, lat, location.long, location.lat)
 
+            interact_type = ''
             if distance_km < 3:
+                if distance_km <= 0.2:
+                    interact_type = 'together'
+                    friend['fields']['type'] = interact_type
+                else:
+                    friend['fields']['type'] = interact_type
+
                 friend['fields']['location'] = {'lat': location.lat,'lon':location.long}
                 nearby['results'].append(friend['fields'])
+            #check interaction
+            interaction(user,AndroidUser.objects.get(username=friend['fields']['username']), interact_type,location,distance_km)
 
     nearby_friend = json.dumps(nearby)
     return nearby_friend
