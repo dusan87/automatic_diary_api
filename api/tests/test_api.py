@@ -237,15 +237,6 @@ class TestSuggestedUsers():
 
 class TestLocationView():
 
-    """
-     - Send user location in format lat,lng
-     - Store user location with assgned date time
-     # - Check user location with another user
-     # - Get near by friends if any
-     # - Check distance of near by fiends if less than 0.2km consider as they are together.
-     # - Store into user interaction
-    """
-
     @postgres_db
     def test_store_location_and_return_followings_location(self, client, user_base_creds, user):
         """
@@ -275,7 +266,31 @@ class TestLocationView():
         assert location['lat'] == param_data['lat'] and location['lng'] ==param_data['lng']
         assert user.username == data['user_location']['user']['username']
 
-    #TODO: Make some fake fixture with older date than 15mins and check if they are not into locations list
+    @postgres_db
+    def test_storing_location_that_already_exist(self, client, user_base_creds, user):
+
+        param_data = {
+                'lat': 43.321321129,
+                'lng': 12.1982322
+            }
+
+        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 201
+
+        response_data = response.data
+
+
+        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 201
+
+        data = response.data
+
+
+        assert response_data['user_location']['location']['id'] == data['user_location']['location']['id']
+
+
     @postgres_db
     def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds, user, followings_locations):
         """
@@ -309,30 +324,6 @@ class TestLocationView():
             date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
             assert 0 < (now - date).total_seconds() <= time_limit # lte 15mins all following locations
 
-
-    @postgres_db
-    def test_storing_location_that_already_exist(self, client, user_base_creds, user):
-
-        param_data = {
-                'lat': 43.321321129,
-                'lng': 12.1982322
-            }
-
-        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
-
-        assert response.status_code == 201
-
-        response_data = response.data
-
-
-        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
-
-        assert response.status_code == 201
-
-        data = response.data
-
-
-        assert response_data['user_location']['location']['id'] == data['user_location']['location']['id']
 
     @postgres_db
     def test_user_followings_locations_updated_at_least_in_last_15mins(self, client, user_base_creds, user, followings_locations):
