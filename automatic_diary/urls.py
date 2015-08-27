@@ -1,9 +1,12 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import patterns, url, include
+from django.conf.urls.static import static
+from django.conf import settings
 
-from config import settings
+
+# from config import settings
 
 # Uncomment the next two lines to enable the admin:
-#from django.contrib import admin
+from django.contrib import admin
 #admin.autodiscover()
 
 
@@ -19,14 +22,10 @@ urlpatterns = patterns('',
     # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     # Uncomment the next line to enable the admin:
-    #url(r'^admin/', include(admin.site.urls)),
-    url(r'^create_user/$', 'api.views.create_user'),
-    url(r'^login_user/$', 'api.views.login_user'),
-    url(r'^check_user/$', 'api.views.check_user'),
-    url(r'^all_users/$', 'api.views.all_users'),
-    url(r'^add_follower/$', 'api.views.add_users_follow'),
-    url(r'^update_location/$', 'api.views.update_location'),
-    url(r'^friends_locations/$', 'api.views.all_followers'),
-    (r'^media/(?P<path>.*)$', 'django.views.static.serve',
-        {'document_root': settings.MEDIA_ROOT})
+    url(r'^admin/', include(admin.site.urls)),
+
+) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urlpatterns += (
+    url(r'^', include('api.urls', namespace='api')),
 )
