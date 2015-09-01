@@ -17,7 +17,7 @@ from api import consts
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AndroidUser
-        fields = ('id', 'username', 'name',
+        fields = ('id', 'email', 'first_name', 'last_name',
                   'phone', 'country', 'city',
                   'image', 'gender', 'birth_day',)
 
@@ -28,7 +28,7 @@ class LocationSerializer(serializers.ModelSerializer):
         fields = ('id', 'lng', 'lat')
 
 
-class UserLocationsSerializer(serializers.ModelSerializer):
+class UsersLocationsSerializer(serializers.ModelSerializer):
     location = LocationSerializer()
     user = UserSerializer()
 
@@ -50,7 +50,7 @@ class UsersInteractionsSerializer(serializers.ModelSerializer):
 class InteractionsSerializer(serializers.BaseSerializer):
     def to_internal_value(self, data):
         type_ = data.get('type')
-        following_username = data.get('following_username')
+        following_email = data.get('following_email')
         phone = data.get('phone')
         lat = data.get('lat')
         lng = data.get('lng')
@@ -65,17 +65,17 @@ class InteractionsSerializer(serializers.BaseSerializer):
                 'type': 'This field must have one of next values (call, sms, physical).'
             })
 
-        if not following_username and type_ == consts.PHYSICAL:
+        if not following_email and type_ == consts.PHYSICAL:
             raise ValidationError({
-                'following_username': 'This field is required in case type is physical.'
+                'following_email': 'This field is required in case type is physical.'
             })
 
-        if following_username:
+        if following_email:
             try:
-                validate_email(following_username)
+                validate_email(following_email)
             except DjangoValidationError:
                 raise ValidationError({
-                    'following_username': 'This field has invalid username email format.'
+                    'following_email': 'This field has invalid email format.'
                 })
 
         if not phone and type_ in (consts.CALL, consts.SMS):
@@ -109,7 +109,7 @@ class InteractionsSerializer(serializers.BaseSerializer):
                 'lat': lat,
                 'lng': lng
             },
-            'following': {'phone': phone} if phone else {'username': following_username}
+            'following': {'phone': phone} if phone else {'email': following_email}
         }
 
         return validated_data
@@ -123,5 +123,5 @@ class InteractionsSerializer(serializers.BaseSerializer):
                 'lng': obj.lng
             },
             'phone': obj.phone,
-            'username': obj.following_username
+            'email': obj.following_email
         }

@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from datetime import datetime as dt
 
 # django
+from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import login, logout
 from django.http import Http404
 
@@ -19,7 +20,7 @@ from rest_framework.response import Response
 # project
 from api import consts
 from .serializers import (UserSerializer,
-                          UserLocationsSerializer,
+                          UsersLocationsSerializer,
                           UsersInteractionsSerializer,
                           InteractionsSerializer)
 from .models import (AndroidUser,
@@ -44,7 +45,7 @@ class AuthView(APIView):
             return Response(UserSerializer(request.user).data, status=201)
 
         return Response(
-            {"message": 'User is not authorized! Please, check username and password!'}, status=401)
+            {"message": 'User is not authorized! Please, check email and password!'}, status=401)
 
     def delete(self, request, format=None):
         logout(request)
@@ -57,12 +58,12 @@ class UserValidationView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def get(self, request, format=None):
-        username = request.query_params.get('username')
+        email = request.query_params.get('email')
         pass1 = request.query_params.get('password1')
         pass2 = request.query_params.get('password2')
 
         try:
-            user = AndroidUser.objects.get(username=username)
+            user = AndroidUser.objects.get(email=email)
         except AndroidUser.DoesNotExist:
             if not pass1 or not pass2:
                 return Response({
@@ -74,7 +75,7 @@ class UserValidationView(APIView):
                 }, status=403)
 
             return Response({
-                'message': 'Username and password are correct.'
+                'message': 'Email and password are correct.'
             })
 
         return Response({
@@ -97,10 +98,10 @@ class ListUsersView(generics.ListAPIView):
 
     #TODO: Check how to format response data for Android
     def get_queryset(self, ):
-        followings = [following.username for following in self.request.user.follows.all()]
+        followings = [following.email for following in self.request.user.follows.all()]
 
-        users = AndroidUser.objects.exclude(username=self.request.user.username).exclude(image='').exclude(
-            username__in=followings)
+        users = AndroidUser.objects.exclude(email=self.request.user.email).exclude(image='').exclude(
+            email__in=followings)
         return users
 
 
@@ -189,7 +190,7 @@ class LocationView(APIView):
         followings_locations = self.get_queryset()
 
         return Response({
-            'followings_locations': UserLocationsSerializer(followings_locations, many=True).data
+            'followings_locations': UsersLocationsSerializer(followings_locations, many=True).data
         })
 
     def post(self, request, format=None):
@@ -212,8 +213,8 @@ class LocationView(APIView):
             }, status=status.HTTP_404_NOT_FOUND)
 
         return Response({
-            'user_location': UserLocationsSerializer(user_location).data,
-            'followings_locations': UserLocationsSerializer(users_location, many=True).data
+            'user_location': UsersLocationsSerializer(user_location).data,
+            'followings_locations': UsersLocationsSerializer(users_location, many=True).data
         }, status=status.HTTP_201_CREATED)
 
 
@@ -242,7 +243,7 @@ class InteractionView(APIView):
 
             except AndroidUser.DoesNotExist:
                 return Response({
-                    'message': "There is no such a username or phone number of user's followings."
+                    'message': "There is no such a email or phone number of user's followings."
                 }, status=status.HTTP_404_NOT_FOUND)
 
             return Response({

@@ -74,7 +74,7 @@ def near_by(user,lon,lat):
                 friend['fields']['location'] = {'lat': location.lat,'lon':location.long}
                 nearby['results'].append(friend['fields'])
             #check interaction
-            interaction(user,AndroidUser.objects.get(username=friend['fields']['username']), interact_type,location,distance_km)
+            interaction(user,AndroidUser.objects.get(email=friend['fields']['email']), interact_type,location, distance_km)
 
     nearby_friend = json.dumps(nearby)
     return nearby_friend

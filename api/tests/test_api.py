@@ -21,14 +21,14 @@ class TestUserCreation():
 
     @postgres_db
     def test_create_user_invalid_email(self, rf, create_user_view, user_data):
-        user_data[consts.USER_NAME] = 'anonymous'
+        user_data[consts.EMAIL] = 'anonymous'
 
         request = rf.post('/create_user/', user_data)
         response = create_user_view(request)
 
         data = response.data
 
-        assert 'Enter a valid email address.' in data['username']
+        assert 'Enter a valid email address.' in data['email']
 
     @postgres_db
     def test_create_user(self, rf, create_user_view, user_data):
@@ -52,7 +52,7 @@ class TestUserAuth():
     @postgres_db
     def test_not_matched_user_credentials(self, client, user_base_creds_invalid, user):
         """
-            User has input eiter invaild username or password.
+            User has input either invalid email or password.
         """
         response = client.post('/auth_user/', HTTP_AUTHORIZATION=user_base_creds_invalid)
 
@@ -72,8 +72,9 @@ class TestUserAuth():
 
         assert response.status_code == 201
         assert data
-        assert data['username'] == user.username
-        assert data['name'] == user.name
+        assert data['email'] == user.email
+        assert data['first_name'] == user.first_name
+        assert data['last_name'] == user.last_name
         assert data['country'] == user.country
         assert data['city'] == user.city
 
@@ -91,7 +92,7 @@ class TestUserAuth():
     def test_user_already_exist(self, client, user):
 
         params = {
-                consts.USER_NAME: 'anonymous@gmail.com',
+                consts.EMAIL: 'anonymous@gmail.com',
                 'password1':'pass',
                 'password2':'pass'
             }
@@ -108,7 +109,7 @@ class TestUserAuth():
     def test_passwords_not_match(self, client, user):
 
         params = {
-                consts.USER_NAME: 'anonymous1@gmail.com',
+                consts.EMAIL: 'anonymous1@gmail.com',
                 'password1':'pass1',
                 'password2':'pass2'
             }
@@ -125,7 +126,7 @@ class TestUserAuth():
     def test_passwords_cannot_be_blank(self, client, user):
 
         params = {
-                consts.USER_NAME: 'anonymous1@gmail.com',
+                consts.EMAIL: 'anonymous1@gmail.com',
                 'password1':'',
                 'password2':'pass2'
             }
@@ -143,7 +144,7 @@ class TestUserAuth():
     def test_user_validate_successfully(self, client, user):
 
         params = {
-                consts.USER_NAME: 'anonymous1@gmail.com',
+                consts.EMAIL: 'anonymous1@gmail.com',
                 'password1':'pass',
                 'password2':'pass'
             }
@@ -154,13 +155,13 @@ class TestUserAuth():
 
         assert response.status_code == 200
         assert data
-        assert data['message'] == 'Username and password are correct.'
+        assert data['message'] == 'Email and password are correct.'
 
     @postgres_db
     def test_two_blank_passwords(self, client, user):
 
         params = {
-                consts.USER_NAME: 'anonymous1@gmail.com',
+                consts.EMAIL: 'anonymous1@gmail.com',
                 'password1':'',
                 'password2':''
             }
@@ -199,7 +200,7 @@ class TestSuggestedUsers():
         assert data['count'] == 6
 
         for user_data in data['results']:
-            assert user_data['username'] != user.username
+            assert user_data['email'] != user.email
             assert user_data['image']
 
     @postgres_db
@@ -215,10 +216,10 @@ class TestSuggestedUsers():
 
         assert 'user' in data.keys()
         assert 'following' in data.keys()
-        assert following_user.username == data['following']['username']
-        assert user.username == data['user']['username']
+        assert following_user.email == data['following']['email']
+        assert user.email == data['user']['email']
 
-        assert following_user.username in user.get_following_users()
+        assert following_user.email in user.get_following_users()
 
     @postgres_db
     def test_follow_user_not_found_pk(self, client, user_base_creds, user, following_user):
@@ -262,7 +263,7 @@ class TestLocationView():
         location = data['user_location']['location']
 
         assert location['lat'] == param_data['lat'] and location['lng'] ==param_data['lng']
-        assert user.username == data['user_location']['user']['username']
+        assert user.email == data['user_location']['user']['email']
 
     @postgres_db
     def test_storing_location_that_already_exist(self, client, user_base_creds, user):
@@ -368,8 +369,8 @@ class TestLocationView():
 
         for loc in locations:
             assert loc['user']
-            assert loc['user']['username']
-            assert loc['user']['username'] != 'anonymous0@gmail.com'
+            assert loc['user']['email']
+            assert loc['user']['email'] != 'anonymous0@gmail.com'
 
     # @postgres_db
     # def test_retrieving_user_locations_order_by_created_at_descending(self, client, user_base_creds, user, user_locations):
@@ -473,7 +474,7 @@ class TestUsersInteractions():
         interactions = dict(consts.INTERACTIONS)
         data = {
                 'type': interactions[consts.PHYSICAL],
-                'following_username':'anonymous',
+                'following_email':'anonymous',
                 'lat': 43.31231,
                 'lng': -34.00122
             }
@@ -484,13 +485,13 @@ class TestUsersInteractions():
         assert hasattr(response, 'data')
 
         data = response.data
-        assert data['following_username']
-        assert data['following_username'] == 'This field has invalid username email format.'
+        assert data['following_email']
+        assert data['following_email'] == 'This field has invalid email format.'
 
     @postgres_db
-    def test_without_username_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds,user):
+    def test_without_email_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds,user):
         """
-        Request params data without following_username and phone number.
+        Request params data without following_email and phone number.
         It should complaint for phone param since the type of interaction is call/sms.
         """
         interactions = dict(consts.INTERACTIONS)
@@ -512,7 +513,7 @@ class TestUsersInteractions():
         interactions = dict(consts.INTERACTIONS)
         data = {
                 'type': interactions[consts.PHYSICAL],
-                'following_username': following_user.username,
+                'following_email': following_user.email,
             }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
@@ -526,7 +527,7 @@ class TestUsersInteractions():
 
         data = {
                 'type': "Wrong",
-                'following_username': following_user.username,
+                'following_email': following_user.email,
                 'lat': -43.023131,
                 'lng': 43.1321321
             }
@@ -545,7 +546,7 @@ class TestUsersInteractions():
 
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'following_username': following_email,
+                'following_email': following_email,
                 'type': interactions[consts.PHYSICAL],
                 'lat': 43.31231,
                 'lng': -34.00122,
@@ -616,4 +617,4 @@ class TestUsersInteractions():
 
         data = response.data
         assert data
-        assert data['message'] == "There is no such a username or phone number of user's followings."
+        assert data['message'] == "There is no such a email or phone number of user's followings."

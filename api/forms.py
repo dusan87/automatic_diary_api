@@ -10,18 +10,18 @@ from models import AndroidUser, UserLocation
 
 class UserCreateForm(UserCreationForm):
 
-    def clean_username(self):
-        username = self.cleaned_data['username']
+    def clean_email(self):
+        email = self.cleaned_data['email']
 
         try:
             # this is most weird thing that I needed to do
-            self._meta.model._default_manager.get(username=username)
+            self._meta.model._default_manager.get(email=email)
         except self._meta.model.DoesNotExist:
-            return username
+            return email
 
     class Meta:
         model = AndroidUser
-        fields = ['name', 'username', 'country', 'birth_day', 'city', 'image', 'gender']
+        fields = ['first_name', 'last_name', 'email', 'country', 'birth_day', 'city', 'image', 'gender']
 
 
 class LocationCreateForm(forms.Form):

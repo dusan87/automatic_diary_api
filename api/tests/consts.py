@@ -1,7 +1,8 @@
 
 # User required fields
-USER_NAME = 'username'
-NAME = 'name'
+EMAIL = 'email'
+FIRST_NAME = 'first_name'
+LAST_NAME = 'last_name'
 PASSWORD = 'password'
 COUNTRY = 'country'
 CITY = 'city'
@@ -12,7 +13,7 @@ PHONE_NUMBER = 'phone'
 REQUIRED_MESSAGE = 'This field is required.'
 INVALID_EMAIL_MSG = 'Enter a valid email address.'
 
-USER_REQUIRED_FIELDS = (USER_NAME, NAME, PHONE_NUMBER)
+USER_REQUIRED_FIELDS = (EMAIL, FIRST_NAME, LAST_NAME, PHONE_NUMBER)
 
 AUTH_ERROR_MESSAGE ='User is not authorized! Please, check username and password!'
 

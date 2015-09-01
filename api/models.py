@@ -1,10 +1,14 @@
 from __future__ import absolute_import
 
-from django.db import models
-from django.contrib.auth.models import (AbstractBaseUser, BaseUserManager, PermissionsMixin)
-
-from .validators import validate_phone_number
+# builtins
 import datetime
+
+# django
+from django.db import models
+from django.utils.translation import ugettext_lazy as _
+from django.contrib.auth.models import (AbstractBaseUser,
+                                        BaseUserManager,
+                                        PermissionsMixin)
 # Create your models here.
 
 
@@ -20,26 +24,30 @@ class UserLocation(models.Model):
 # TODO: This should be Userprofile manager
 class AndroidUserManager(BaseUserManager):
 
-    def create_user(self, username,name=None, country=None, city=None, gender=None,
-                    birth_day=None, password=None, phone=None):
+    def _create_user(self, email, password, phone, **extra_fields):
+        """
+        Creates and saves a User with a given username(email), phone and password.
+        """
+        if not email:
+            raise ValueError("The given email must be set.")
 
-        if not username:
-            raise ValueError("User must have a username")
-
-        user = self.model(username=username, name=name,
-                          country=country,city=city, gender=gender, birth_day=birth_day, phone=phone)
+        email = self.normalize_email(email)
+        user = self.model(email=email,
+                          phone=phone,
+                          **extra_fields)
 
         user.set_password(password)
         user.save(using=self._db)
+
         return user
 
-    def create_superuser(self, username, name,country,city,gender,birth_day,password):
+    def create_user(self, email, password, phone, **extra_fields):
 
-        user = self.create_user(username=username,name=name,country=country,city=city,
-                                gender=gender,birth_day=birth_day,password=password)
+        return self._create_user(email, password, phone, **extra_fields)
 
-        user.save(using=self._db)
-        return user
+    def create_superuser(self, email, password, phone, **extra_fields):
+
+        return self._create_user(email, password, phone, **extra_fields)
 
 
 #TODO: This should be User Profile, to be more generalized
@@ -56,31 +64,41 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
     follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
     interactions = models.ManyToManyField('self', related_name='user interactions', through='UsersInteractions', through_fields=['user', 'following'])
 
-    username = models.EmailField(max_length=50, unique=True, db_index=True, default='')
-    name = models.CharField(max_length=250, help_text="Please, use full name(e.g Peter Jackson).")
+    email = models.EmailField(_("email address"), max_length=50, unique=True, db_index=True)
+    first_name = models.CharField(_("first name"), max_length=25)
+    last_name = models.CharField(_("last name"), max_length=25)
     gender = models.CharField(max_length=2, choices=GENDER, default=MALE, blank=True)
-    birth_day = models.DateField(default=datetime.date(2013, 2, 1), blank=True)
+    birth_day = models.DateField(_("birthday"), blank=True, null=True)
 
     phone = models.CharField(max_length=15, unique=True)
-    country = models.CharField(max_length=50, default='', blank=True)
-    city = models.CharField(max_length=50, default='', blank=True)
+    country = models.CharField(max_length=50, blank=True)
+    city = models.CharField(max_length=50, blank=True)
     image = models.ImageField(blank=True, upload_to='users_photo')
+
+    date_joined = models.DateTimeField(_('date joined'), auto_now_add=True)
 
     objects = AndroidUserManager()
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    class Meta:
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+
     def get_full_name(self):
         # The user is identified by their email address
-        return self.username
+        return self.email
 
     def get_short_name(self):
         # The user is identified by their email address
-        return self.username
+        return self.email
 
     def natural_key(self):
-        return self.username
+        return self.email
 
     def __str__(self):
-        return self.username
+        return self.email
 
     def add_follower(self, user):
         if user not in self.follows.all():
@@ -95,7 +113,7 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
         return True
 
     def get_following_users(self):
-        return [user.username for user in self.follows.all()]
+        return [user.email for user in self.follows.all()]
 
     def check_location(self, latitude, longitude):
         if self.location and self.location.lat == latitude and self.location.long == longitude:
@@ -115,32 +133,30 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
         friends = []
         for i, interact in enumerate(interactions):
 
-            tmp = interact.second_user.username
+            tmp = interact.second_user.email
             total_time = (interact.end_time - interact.start_time).total_seconds()
 
             if i + 1 < len(interactions):
                 for inter in interactions[i + 1:]:
-                    if inter.second_user.username == tmp and not tmp in friends:
+                    if inter.second_user.email == tmp and not tmp in friends:
                         total_time += (inter.end_time - inter.start_time).total_seconds()
 
             if not tmp in friends:
                 friends.append(tmp)
-                top10['results'].append({'username':tmp, 'total_time':total_time})
+                top10['results'].append({'email':tmp, 'total_time':total_time})
 
         del friends
         return top10
 
     def as_json_dict(self):
         return {
-            'username': self.username,
-            'name':self.name,
+            'email': self.email,
+            'first_name':self.first_name,
+            'last_name': self.last_name,
             'country':self.country,
             'city': self.city,
             'birth_day': str(self.birth_day)
         }
-
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['name', 'country', 'city', 'gender', 'birth_day', 'phone']
 
 
 class UsersInteractions(models.Model):

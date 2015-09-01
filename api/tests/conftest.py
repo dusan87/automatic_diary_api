@@ -31,13 +31,14 @@ def user_required_fields():
 @pytest.fixture
 def user_data():
     data = {
-            consts.USER_NAME: 'anonymous@gmail.com',
-            consts.NAME: 'Anon Anon',
+            consts.EMAIL: 'anonymous@gmail.com',
+            consts.FIRST_NAME: 'Anon',
+            consts.LAST_NAME: ' Anon',
             consts.PASSWORD:'pass',
             consts.COUNTRY: 'Serbia',
             consts.CITY: 'Belgrade',
             consts.GENDER: 'M',
-            consts.PHONE_NUMBER:'+381645227594'
+            consts.PHONE_NUMBER: '+381645227594'
         }
 
     return data
@@ -46,7 +47,7 @@ def user_data():
 def user_credentials():
 
     credentials = {
-        consts.USER_NAME:'anonymous@gmail.com',
+        consts.EMAIL:'anonymous@gmail.com',
         consts.PASSWORD: 'pass'
     }
 
@@ -78,7 +79,7 @@ def user(user_data):
 @pytest.fixture
 def user_with_image(user_data, image_path):
 
-    user_data[consts.USER_NAME] = 'dusanristic@elfak.rs'
+    user_data[consts.EMAIL] = 'dusanristic@elfak.rs'
     user_data[consts.PHONE_NUMBER] = '+381640000000'
     user = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
     user.image = File(open(image_path))
@@ -93,7 +94,7 @@ def users(user_data, image_path, user, user_with_image):
     users = [user_with_image, user]
 
     for i in range(20):
-        user_data[consts.USER_NAME] = 'anonymous' + str(i) + '@gmail.com'
+        user_data[consts.EMAIL] = 'anonymous' + str(i) + '@gmail.com'
         user_data[consts.PHONE_NUMBER] = '+381' + str(random.randint(60,69)) + str(random.randint(0000000,9999999))
         usr = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
 
@@ -112,7 +113,7 @@ def users(user_data, image_path, user, user_with_image):
 @pytest.fixture
 def following_user(user,user_data):
 
-    user_data[consts.USER_NAME] = 'follower@gmail.com'
+    user_data[consts.EMAIL] = 'follower@gmail.com'
     user_data[consts.PHONE_NUMBER] = '+381650000000'
     follower = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
 
@@ -146,9 +147,9 @@ def followings_locations(users, locations):
 @pytest.fixture
 def not_active_following_location(followings_locations):
 
-    username = 'anonymous0@gmail.com'
+    email = 'anonymous0@gmail.com'
 
-    anon_user = AndroidUser.objects.get(username=username)
+    anon_user = AndroidUser.objects.get(email=email)
 
     anon_locations = UsersLocations.objects.filter(user=anon_user)
 
@@ -172,8 +173,8 @@ def following_email():
 @pytest.fixture
 def following(users):
     try:
-        following = AndroidUser.objects.get(username=following_email)
+        following = AndroidUser.objects.get(email=following_email)
     except AndroidUser.DoesNotExist:
-        return 'Invalid username!'
+        return 'There is no such a User with this email!'
 
     return following

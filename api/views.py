@@ -23,9 +23,9 @@ def create_user(request):
 
 def login_user(request):
     if request.method == "POST":
-        username = request.POST['username']
+        email = request.POST['email']
         password = request.POST['password']
-        user = authenticate(username=username, password=password)
+        user = authenticate(email=email, password=password)
         if user is not None:
             if user.is_active:
                 login(request, user)
@@ -38,10 +38,10 @@ def login_user(request):
 
 def check_user(request):
     if request.method == "POST":
-        username = request.POST['username']
+        email = request.POST['email']
         password1 = request.POST['password1']
         password2 = request.POST['password2']
-        if not AndroidUser.objects.filter(username=username):
+        if not AndroidUser.objects.filter(email=email):
             if password1 and password2 and password1 == password2:
                 return HttpResponse(status=200)
             return HttpResponse(status=403)
@@ -51,11 +51,11 @@ def check_user(request):
 
 def all_users(request):
     if request.method == "GET":
-        username = request.GET['username']
-        user = AndroidUser.objects.get(username=username)
-        excluded_users = [follower.username for follower in user.follows.all()]
-        excluded_users.append(request.GET['username'])
-        users_data = [user for user in AndroidUser.objects.exclude(username__in=excluded_users) if user.image.__ne__('')]
+        email = request.GET['email']
+        user = AndroidUser.objects.get(email=email)
+        excluded_users = [follower.email for follower in user.follows.all()]
+        excluded_users.append(request.GET['email'])
+        users_data = [user for user in AndroidUser.objects.exclude(email__in=excluded_users) if user.image.__ne__('')]
         users_data = serializers.serialize('json', users_data, use_natural_primary_keys=True)
         users_data = json.loads(users_data)
         users = {'results': []}
@@ -70,10 +70,10 @@ def all_users(request):
 
 def add_users_follow(request):
     if request.method == "POST":
-        logged_username = request.POST['logged_username']
-        username = request.POST['friend_username']
-        followed_by = AndroidUser.objects.get(username=logged_username)
-        follower = AndroidUser.objects.get(username=username)
+        logged_email = request.POST['logged_email']
+        email = request.POST['friend_email']
+        followed_by = AndroidUser.objects.get(email=logged_email)
+        follower = AndroidUser.objects.get(email=email)
         followed_by.add_follower(follower)
         return HttpResponse(status=200)
     return HttpResponse(status=200)
@@ -81,10 +81,10 @@ def add_users_follow(request):
 
 def update_location(request):
     if request.method == 'POST':
-        username = request.POST['username']
+        email = request.POST['email']
         lat,lon = request.POST.get('lat', False), request.POST.get('long',False)
-        if username and lat and lon:
-            user = AndroidUser.objects.get(username=username)
+        if email and lat and lon:
+            user = AndroidUser.objects.get(email=email)
             if user.check_location(latitude=lat,longitude=lon):
                 user.add_location(latitude=lat,longitude=lon)
             nearby_friends = near_by(user, lon=lon,lat=lat)
@@ -95,10 +95,10 @@ def update_location(request):
 
 def all_followers(request):
     if request.method == "GET":
-        username = request.GET['username']
+        email = request.GET['email']
         followers = {'results':[]}
-        if username:
-            user = AndroidUser.objects.get(username=username)
+        if email:
+            user = AndroidUser.objects.get(email=email)
             friends = [friend for friend in user.follows.all()]
             locations = [friend.location for friend in friends]
 
