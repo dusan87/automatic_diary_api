@@ -1,15 +1,13 @@
 import consts
 import pytest
 from datetime import datetime as dt
-from api.api import CreateUser
-from api.models import AndroidUser
-import base64
-import json
+from api.models import UsersInteractions
 
 postgres_db = pytest.mark.django_db
 
 
 class TestUserCreation():
+
 
     def test_create_user_requred_fields_failure(self, rf, create_user_view, user_required_fields):
 
@@ -235,6 +233,7 @@ class TestSuggestedUsers():
         assert 'detail' in data
         assert data['detail'] == 'Not found.'
 
+
 class TestLocationView():
 
     @postgres_db
@@ -351,7 +350,7 @@ class TestLocationView():
             assert 0 < (now - date).total_seconds() <= time_limit # lte 15mins all following locations
 
     @postgres_db
-    def test_exluding_not_active_user_followings_locations(self, client, user_base_creds,user, followings_locations, not_active_following_location):
+    def test_excluding_not_active_user_followings_locations(self, client, user_base_creds,user, followings_locations, not_active_following_location):
         """
             Check if in the following locations list there is no following that has not updated location in last 15mins
             So, we consider that kind of users location as not valid and do not list it.
@@ -396,3 +395,226 @@ class TestLocationView():
             # assert gt_date > lt_date
 
             # i +=1
+
+
+class TestUsersInteractions():
+    """
+        Interaction can be achieved with three types of interactions:
+        - (CALL, SMS, Physical)
+        - Required fileds are (type, location, interactor_email?,phone?)
+        - Interactor email is required when type is Physical
+        - Phone is required in case that type is either CALL or SMS
+        - If we dont match ordered phone number we just avoid creation
+    """
+
+    @postgres_db
+    def test_storing_users_interaction_call_fail_without_number_param(self, client, user_base_creds, user):
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.CALL],
+                'phone': '',
+                'lat': 43.31231,
+                'lng': -34.00122,
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        data = response.data
+
+        assert 'phone' in data.keys()
+        assert data['phone'] == 'This field is required in case type is either call or sms.'
+
+    @postgres_db
+    def test_storing_users_interaction_sms_fail_without_number_param(self, client, user_base_creds, user):
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.SMS],
+                'phone':'',
+                'lat': 43.31231,
+                'lng': -34.00122
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        data = response.data
+
+        assert 'phone' in data.keys()
+        assert data['phone'] == 'This field is required in case type is either call or sms.'
+
+    #TODO: Set this test case into proper format, it doesnt work as I expect
+    # @postgres_db
+    # def test_storing_sms_users_interaction_wrong_number_format(self, client, user_base_creds, user):
+
+        # interactions = dict(consts.INTERACTIONS)
+        # data = {
+                # 'type': interactions[consts.SMS],
+                # 'phone':'38164159195a',
+                # 'lat': 43.31231,
+                # 'lng': -34.00122
+            # }
+
+        # response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        # import pdb;pdb.set_trace()
+        # assert response.status_code == 400
+        # assert hasattr(response, 'data')
+
+        # data = response.data
+
+        # assert 'phone' in data.keys()
+        # assert data['phone'] == 'This field must be a numeric.'
+
+    @postgres_db
+    def test_storing_users_interactions_fail_with_invalid_following_email_format(self, client, user_base_creds, user):
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.PHYSICAL],
+                'following_username':'anonymous',
+                'lat': 43.31231,
+                'lng': -34.00122
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        assert hasattr(response, 'data')
+
+        data = response.data
+        assert data['following_username']
+        assert data['following_username'] == 'This field has invalid username email format.'
+
+    @postgres_db
+    def test_without_username_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds,user):
+        """
+        Request params data without following_username and phone number.
+        It should complaint for phone param since the type of interaction is call/sms.
+        """
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.CALL],
+                'lat': 43.31231,
+                'lng': -34.00122
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        assert response.data
+        assert response.data['phone'] ==  'This field is required in case type is either call or sms.'
+
+    @postgres_db
+    def test_without_location_param_user_interaction_fails(self, client, user_base_creds, user, following_user):
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.PHYSICAL],
+                'following_username': following_user.username,
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        assert response.data
+        assert response.data['lat'] == 'This field is required.'
+
+    @postgres_db
+    def test_type_of_interaction_doesnt_match_available_chooses(self, client, user_base_creds, user, following_user):
+
+        data = {
+                'type': "Wrong",
+                'following_username': following_user.username,
+                'lat': -43.023131,
+                'lng': 43.1321321
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        assert response.data
+        assert response.data['type'] == 'This field must have one of next values (call, sms, physical).'
+
+    @postgres_db
+    def test_storing_users_interaction_physical(self, client, user_base_creds, user, following_email, following):
+
+        #number of interactions between users before request
+        interactions_no_before = len(UsersInteractions.objects.filter(user=user, following=following))
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'following_username': following_email,
+                'type': interactions[consts.PHYSICAL],
+                'lat': 43.31231,
+                'lng': -34.00122,
+                'phone':''
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 201
+        data = response.data
+        assert data['interaction']
+        assert data['interaction']['user']
+        assert data['interaction']['created_at']
+        assert data['interaction']['location']
+        assert data['interaction']['type'] == interactions[consts.PHYSICAL]
+
+        interactions_no_after =  len(UsersInteractions.objects.filter(user=user, following=following))
+
+        #number of interactions should be increase for one
+        assert interactions_no_before + 1 == interactions_no_after
+
+    @postgres_db
+    def test_storing_call_users_interaction(self, client, user_base_creds, user, following_user):
+
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.CALL],
+                'phone': following_user.phone,
+                'lat': 43.31231,
+                'lng': -34.00122
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 201
+        assert hasattr(response, 'data')
+
+        data = response.data
+        assert data
+        assert data['interaction']
+        assert data['interaction']['user']
+        assert data['interaction']['following']
+        assert data['interaction']['created_at']
+        assert data['interaction']['location']
+        assert data['interaction']['type'] and data['interaction']['type'] == consts.CALL
+        assert user.is_following(**{
+            'id':data['interaction']['following']['id']
+        })
+
+    @postgres_db
+    def test_skip_storing_call_users_interaction(self, client, user_base_creds, user, user_with_image):
+        """
+        There is a user with passed number, but the user passed number is not followed by the user/persone who has been called.
+        We just keep tracking interaction between following users.
+        """
+        interactions = dict(consts.INTERACTIONS)
+        data = {
+                'type': interactions[consts.CALL],
+                'phone': user_with_image.phone,
+                'lat': 43.31231,
+                'lng': -34.00122
+            }
+
+        response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 404
+        assert hasattr(response, 'data')
+
+        data = response.data
+        assert data
+        assert data['message'] == "There is no such a username or phone number of user's followings."
