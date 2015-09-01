@@ -15,7 +15,7 @@ from django.contrib.auth.models import (AbstractBaseUser,
 # TODO: This should be just location, not user location
 class UserLocation(models.Model):
 
-    user = models.ForeignKey('User', related_name = "user's location")
+    user = models.ForeignKey('User', related_name="locations")
     long = models.FloatField()
     lat = models.FloatField()
     last_update = models.DateTimeField(auto_now_add=True, null=True)
@@ -60,7 +60,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
-    interactions = models.ManyToManyField('self', related_name='user interactions', through='UsersInteractions', through_fields=['user', 'following'])
+    interactions = models.ManyToManyField('self', through='UsersInteractions', through_fields=['user', 'following'],
+                                          symmetrical=False)
 
     email = models.EmailField(_("email address"), max_length=50, unique=True, db_index=True)
     first_name = models.CharField(_("first name"), max_length=25)
@@ -165,8 +166,8 @@ class UsersInteractions(models.Model):
         ('sms','sms')
     )
 
-    user = models.ForeignKey('User')
-    following = models.ForeignKey('User')
+    user = models.ForeignKey('User', related_name='users')
+    following = models.ForeignKey('User', related_name='followings')
 
     location = models.OneToOneField('Location')
     type = models.CharField(max_length=25, choices=TYPES)

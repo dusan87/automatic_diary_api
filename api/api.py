@@ -83,7 +83,7 @@ class UserValidationView(APIView):
         }, status=403)
 
 
-class ListUsersView(generics.ListAPIView):
+class ListUsersView(APIView):
     """
     Suggestion list of potentical user's followers
           - List of all users in the system
@@ -93,13 +93,11 @@ class ListUsersView(generics.ListAPIView):
     """
 
     authentication_classes = (SessionAuthentication, BasicAuthentication, )
-    permissions_classes = (permissions.AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
     serializer_class = UserSerializer
 
-    #TODO: Check how to format response data for Android
     def get_queryset(self, ):
         followings = [following.email for following in self.request.user.follows.all()]
-
         users = User.objects.exclude(email=self.request.user.email).exclude(image='').exclude(
             email__in=followings)
         return users
