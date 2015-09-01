@@ -109,7 +109,7 @@ class FollowView(APIView):
         @param
     """
 
-    authorazation_class = (SessionAuthentication, BasicAuthentication)
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self, pk):
@@ -138,7 +138,7 @@ class FollowView(APIView):
 
 
 class LocationView(APIView):
-    authorization_class = (SessionAuthentication, BasicAuthentication)
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
 
     def IsUpdated(self, created_at):
@@ -219,7 +219,7 @@ class LocationView(APIView):
 class InteractionView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_classes = (UsersInteractionsSerializer,)
+    serializer_class = UsersInteractionsSerializer
 
     types = (consts.CALL, consts.SMS, consts.PHYSICAL)
 
