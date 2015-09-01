@@ -9,14 +9,14 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 # project
-from .models import (AndroidUser, Location, UsersLocations, UsersInteractions)
+from .models import (User, Location, UsersLocations, UsersInteractions)
 from api import consts
 
 
 # TODO: Create dynamic fields serializer
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AndroidUser
+        model = User
         fields = ('id', 'email', 'first_name', 'last_name',
                   'phone', 'country', 'city',
                   'image', 'gender', 'birth_day',)

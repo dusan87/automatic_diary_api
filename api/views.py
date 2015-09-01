@@ -3,7 +3,7 @@ from django.shortcuts import render, HttpResponse
 from django.http import StreamingHttpResponse
 from forms import UserCreateForm
 from django.contrib.auth import authenticate, login
-from models import AndroidUser
+from models import User
 import json
 from django.core import serializers
 from map_methods import near_by
@@ -41,7 +41,7 @@ def check_user(request):
         email = request.POST['email']
         password1 = request.POST['password1']
         password2 = request.POST['password2']
-        if not AndroidUser.objects.filter(email=email):
+        if not User.objects.filter(email=email):
             if password1 and password2 and password1 == password2:
                 return HttpResponse(status=200)
             return HttpResponse(status=403)
@@ -52,10 +52,10 @@ def check_user(request):
 def all_users(request):
     if request.method == "GET":
         email = request.GET['email']
-        user = AndroidUser.objects.get(email=email)
+        user = User.objects.get(email=email)
         excluded_users = [follower.email for follower in user.follows.all()]
         excluded_users.append(request.GET['email'])
-        users_data = [user for user in AndroidUser.objects.exclude(email__in=excluded_users) if user.image.__ne__('')]
+        users_data = [user for user in User.objects.exclude(email__in=excluded_users) if user.image.__ne__('')]
         users_data = serializers.serialize('json', users_data, use_natural_primary_keys=True)
         users_data = json.loads(users_data)
         users = {'results': []}
@@ -72,8 +72,8 @@ def add_users_follow(request):
     if request.method == "POST":
         logged_email = request.POST['logged_email']
         email = request.POST['friend_email']
-        followed_by = AndroidUser.objects.get(email=logged_email)
-        follower = AndroidUser.objects.get(email=email)
+        followed_by = User.objects.get(email=logged_email)
+        follower = User.objects.get(email=email)
         followed_by.add_follower(follower)
         return HttpResponse(status=200)
     return HttpResponse(status=200)
@@ -84,7 +84,7 @@ def update_location(request):
         email = request.POST['email']
         lat,lon = request.POST.get('lat', False), request.POST.get('long',False)
         if email and lat and lon:
-            user = AndroidUser.objects.get(email=email)
+            user = User.objects.get(email=email)
             if user.check_location(latitude=lat,longitude=lon):
                 user.add_location(latitude=lat,longitude=lon)
             nearby_friends = near_by(user, lon=lon,lat=lat)
@@ -98,7 +98,7 @@ def all_followers(request):
         email = request.GET['email']
         followers = {'results':[]}
         if email:
-            user = AndroidUser.objects.get(email=email)
+            user = User.objects.get(email=email)
             friends = [friend for friend in user.follows.all()]
             locations = [friend.location for friend in friends]
 

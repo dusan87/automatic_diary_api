@@ -4,7 +4,7 @@ import base64
 import random
 from django.core.files import File
 from api.api import CreateUser, AuthView
-from api.models import (AndroidUser,
+from api.models import (User,
                         Location,
                         UsersLocations)
 from datetime import datetime as dt
@@ -72,7 +72,7 @@ def image_path():
 
 @pytest.fixture
 def user(user_data):
-    user = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
+    user = User.objects.create_user(birth_day=dt.now(), **user_data)
     return user
 
 
@@ -81,7 +81,7 @@ def user_with_image(user_data, image_path):
 
     user_data[consts.EMAIL] = 'dusanristic@elfak.rs'
     user_data[consts.PHONE_NUMBER] = '+381640000000'
-    user = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
+    user = User.objects.create_user(birth_day=dt.now(), **user_data)
     user.image = File(open(image_path))
     user.save()
     assert user.pk
@@ -96,7 +96,7 @@ def users(user_data, image_path, user, user_with_image):
     for i in range(20):
         user_data[consts.EMAIL] = 'anonymous' + str(i) + '@gmail.com'
         user_data[consts.PHONE_NUMBER] = '+381' + str(random.randint(60,69)) + str(random.randint(0000000,9999999))
-        usr = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
+        usr = User.objects.create_user(birth_day=dt.now(), **user_data)
 
         if i % 2 == 0: #each second user has image
             usr.image = File(open(image_path))
@@ -115,7 +115,7 @@ def following_user(user,user_data):
 
     user_data[consts.EMAIL] = 'follower@gmail.com'
     user_data[consts.PHONE_NUMBER] = '+381650000000'
-    follower = AndroidUser.objects.create_user(birth_day=dt.now(), **user_data)
+    follower = User.objects.create_user(birth_day=dt.now(), **user_data)
 
     user.add_follower(follower)
     return follower
@@ -149,7 +149,7 @@ def not_active_following_location(followings_locations):
 
     email = 'anonymous0@gmail.com'
 
-    anon_user = AndroidUser.objects.get(email=email)
+    anon_user = User.objects.get(email=email)
 
     anon_locations = UsersLocations.objects.filter(user=anon_user)
 
@@ -173,8 +173,8 @@ def following_email():
 @pytest.fixture
 def following(users):
     try:
-        following = AndroidUser.objects.get(email=following_email)
-    except AndroidUser.DoesNotExist:
+        following = User.objects.get(email=following_email)
+    except User.DoesNotExist:
         return 'There is no such a User with this email!'
 
     return following

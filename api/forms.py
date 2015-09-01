@@ -5,7 +5,7 @@ from django import forms
 from django.contrib.auth.admin import UserCreationForm
 
 # project
-from models import AndroidUser, UserLocation
+from models import User, UserLocation
 
 
 class UserCreateForm(UserCreationForm):
@@ -20,7 +20,7 @@ class UserCreateForm(UserCreationForm):
             return email
 
     class Meta:
-        model = AndroidUser
+        model = User
         fields = ['first_name', 'last_name', 'email', 'country', 'birth_day', 'city', 'image', 'gender']
 
 

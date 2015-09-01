@@ -15,14 +15,13 @@ from django.contrib.auth.models import (AbstractBaseUser,
 # TODO: This should be just location, not user location
 class UserLocation(models.Model):
 
-    user = models.ForeignKey('AndroidUser', related_name = "user's location")
+    user = models.ForeignKey('User', related_name = "user's location")
     long = models.FloatField()
     lat = models.FloatField()
     last_update = models.DateTimeField(auto_now_add=True, null=True)
 
 
-# TODO: This should be Userprofile manager
-class AndroidUserManager(BaseUserManager):
+class UserManager(BaseUserManager):
 
     def _create_user(self, email, password, phone, **extra_fields):
         """
@@ -50,8 +49,7 @@ class AndroidUserManager(BaseUserManager):
         return self._create_user(email, password, phone, **extra_fields)
 
 
-#TODO: This should be User Profile, to be more generalized
-class AndroidUser(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, PermissionsMixin):
 
     MALE = 'M'
     FEMALE = 'F'
@@ -77,7 +75,7 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
 
     date_joined = models.DateTimeField(_('date joined'), auto_now_add=True)
 
-    objects = AndroidUserManager()
+    objects = UserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -167,8 +165,8 @@ class UsersInteractions(models.Model):
         ('sms','sms')
     )
 
-    user = models.ForeignKey('AndroidUser')
-    following = models.ForeignKey('AndroidUser')
+    user = models.ForeignKey('User')
+    following = models.ForeignKey('User')
 
     location = models.OneToOneField('Location')
     type = models.CharField(max_length=25, choices=TYPES)
@@ -179,7 +177,7 @@ class Location(models.Model):
     lng = models.FloatField()
     lat = models.FloatField()
 
-    users = models.ManyToManyField('AndroidUser', through='UsersLocations')
+    users = models.ManyToManyField('User', through='UsersLocations')
 
     def __str__(self):
         return ",".join((str(self.lng),str(self.lat)))
@@ -188,7 +186,7 @@ class Location(models.Model):
 class UsersLocations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    user = models.ForeignKey('AndroidUser')
+    user = models.ForeignKey('User')
     location = models.ForeignKey('Location')
 
     class Meta:
@@ -197,12 +195,12 @@ class UsersLocations(models.Model):
 
 class LocationsOfInterest(models.Model):
 
-    type_of = models.CharField(max_length=50, verbose_name='Restaurange, bar, library...')
+    type_of = models.CharField(max_length=50, verbose_name='Restaurants, bar, library...')
     description = models.CharField(max_length=1000)
     image = models.ImageField(blank=True,upload_to='place_imgs')
 
     # One to many to user
-    user = models.ForeignKey('AndroidUser')
+    user = models.ForeignKey('User')
 
     # One to one to location
     location = models.OneToOneField('Location')

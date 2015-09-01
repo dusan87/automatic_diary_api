@@ -23,14 +23,14 @@ from .serializers import (UserSerializer,
                           UsersLocationsSerializer,
                           UsersInteractionsSerializer,
                           InteractionsSerializer)
-from .models import (AndroidUser,
+from .models import (User,
                      Location,
                      UsersLocations,
                      UsersInteractions)
 
 
 class CreateUser(generics.CreateAPIView):
-    model = AndroidUser
+    model = User
     serializer_class = UserSerializer
     permission_classes = (permissions.AllowAny,)
 
@@ -63,8 +63,8 @@ class UserValidationView(APIView):
         pass2 = request.query_params.get('password2')
 
         try:
-            user = AndroidUser.objects.get(email=email)
-        except AndroidUser.DoesNotExist:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
             if not pass1 or not pass2:
                 return Response({
                     "message": "Password cannot be blank value!"
@@ -100,7 +100,7 @@ class ListUsersView(generics.ListAPIView):
     def get_queryset(self, ):
         followings = [following.email for following in self.request.user.follows.all()]
 
-        users = AndroidUser.objects.exclude(email=self.request.user.email).exclude(image='').exclude(
+        users = User.objects.exclude(email=self.request.user.email).exclude(image='').exclude(
             email__in=followings)
         return users
 
@@ -116,8 +116,8 @@ class FollowView(APIView):
 
     def get_queryset(self, pk):
         try:
-            following = AndroidUser.objects.get(pk=pk)
-        except AndroidUser.DoesNotExist:
+            following = User.objects.get(pk=pk)
+        except User.DoesNotExist:
             raise Http404
 
         return following
@@ -241,7 +241,7 @@ class InteractionView(APIView):
                                                       type=data['type'])
                 users_interaction.save()
 
-            except AndroidUser.DoesNotExist:
+            except User.DoesNotExist:
                 return Response({
                     'message': "There is no such a email or phone number of user's followings."
                 }, status=status.HTTP_404_NOT_FOUND)
