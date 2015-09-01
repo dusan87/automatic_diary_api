@@ -1,9 +1,19 @@
 __author__ = 'dusanristic'
-from math import radians, cos,sin,asin,sqrt
-from django.core.serializers import serialize
+
+# builtins
 import json
-from models import UserLocation, UsersInteractions, AndroidUser
 from datetime import datetime
+from math import radians, cos,sin,asin,sqrt
+
+# django
+from django.core.serializers import serialize
+
+# project
+from models import (UserLocation,
+                    UsersInteractions,
+                    AndroidUser)
+
+
 def distance(lon1,lat1,lon2,lat2):
     """
     Calculate the great circle distance between two points

@@ -1,7 +1,10 @@
 __author__ = 'dusanristic'
+
+# django
 from django import forms
-from django.forms import fields
 from django.contrib.auth.admin import UserCreationForm
+
+# project
 from models import AndroidUser, UserLocation
 
 
@@ -18,7 +21,7 @@ class UserCreateForm(UserCreationForm):
 
     class Meta:
         model = AndroidUser
-        fields = ['first_name', 'last_name', 'username', 'country', 'birth_day', 'city', 'image', 'gender']
+        fields = ['name', 'username', 'country', 'birth_day', 'city', 'image', 'gender']
 
 
 class LocationCreateForm(forms.Form):

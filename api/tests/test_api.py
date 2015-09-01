@@ -73,8 +73,7 @@ class TestUserAuth():
         assert response.status_code == 201
         assert data
         assert data['username'] == user.username
-        assert data['first_name'] == user.first_name
-        assert data['last_name'] == user.last_name
+        assert data['name'] == user.name
         assert data['country'] == user.country
         assert data['city'] == user.city
 

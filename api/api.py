@@ -1,29 +1,40 @@
 from __future__ import absolute_import
 
+# builtins
+from datetime import datetime as dt
+
+# django
 from django.contrib.auth import login, logout
 from django.http import Http404
-from django.core.validators import RegexValidator
-from rest_framework import generics, permissions, mixins
-from rest_framework.authentication import (BasicAuthentication, SessionAuthentication)
+
+# rest framework
+from rest_framework import (generics,
+                            permissions,
+                            status)
+from rest_framework.authentication import (BasicAuthentication,
+                                           SessionAuthentication)
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 
-from datetime import datetime as dt
+# project
 from api import consts
-from .serializers import (UserSerializer, LocationSerializer,
-                          UserLocationsSerializer, UsersInteractionsSerializer, InteractionsSerializer)
-from .models import (AndroidUser, Location, UserLocations, UsersInteractions)
+from .serializers import (UserSerializer,
+                          UserLocationsSerializer,
+                          UsersInteractionsSerializer,
+                          InteractionsSerializer)
+from .models import (AndroidUser,
+                     Location,
+                     UsersLocations,
+                     UsersInteractions)
+
 
 class CreateUser(generics.CreateAPIView):
-
     model = AndroidUser
     serializer_class = UserSerializer
     permission_classes = (permissions.AllowAny,)
 
 
 class AuthView(APIView):
-
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.AllowAny,)
 
@@ -33,17 +44,16 @@ class AuthView(APIView):
             return Response(UserSerializer(request.user).data, status=201)
 
         return Response(
-                {"message": 'User is not authorized! Please, check username and password!'}, status=401)
+            {"message": 'User is not authorized! Please, check username and password!'}, status=401)
 
     def delete(self, request, format=None):
         logout(request)
         return Response({
             'message': 'User has been successfully logged out.'
-            })
+        })
 
 
 class UserValidationView(APIView):
-
     permission_classes = (permissions.AllowAny,)
 
     def get(self, request, format=None):
@@ -52,7 +62,7 @@ class UserValidationView(APIView):
         pass2 = request.query_params.get('password2')
 
         try:
-           user = AndroidUser.objects.get(username=username)
+            user = AndroidUser.objects.get(username=username)
         except AndroidUser.DoesNotExist:
             if not pass1 or not pass2:
                 return Response({
@@ -86,15 +96,15 @@ class ListUsersView(generics.ListAPIView):
     serializer_class = UserSerializer
 
     #TODO: Check how to format response data for Android
-    def get_queryset(self,):
-
+    def get_queryset(self, ):
         followings = [following.username for following in self.request.user.follows.all()]
 
-        users = AndroidUser.objects.exclude(username=self.request.user.username).exclude(image='').exclude(username__in=followings)
+        users = AndroidUser.objects.exclude(username=self.request.user.username).exclude(image='').exclude(
+            username__in=followings)
         return users
 
-class FollowView(APIView):
 
+class FollowView(APIView):
     """
         Add following user to user's list of followers
         @param
@@ -105,7 +115,7 @@ class FollowView(APIView):
 
     def get_queryset(self, pk):
         try:
-           following = AndroidUser.objects.get(pk=pk)
+            following = AndroidUser.objects.get(pk=pk)
         except AndroidUser.DoesNotExist:
             raise Http404
 
@@ -127,10 +137,10 @@ class FollowView(APIView):
             'following': UserSerializer(following).data
         })
 
-class LocationView(APIView):
 
+class LocationView(APIView):
     authorization_class = (SessionAuthentication, BasicAuthentication)
-    permission_classes  = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def IsUpdated(self, created_at):
         """
@@ -149,8 +159,7 @@ class LocationView(APIView):
             return 0 < dist.total_seconds() <= time_limit
 
 
-
-    def get_queryset(self,):
+    def get_queryset(self, ):
         """
             get user's following friends current locations
         """
@@ -162,7 +171,7 @@ class LocationView(APIView):
 
         for following in user.follows.all():
             try:
-                user_location = UserLocations.objects.filter(user=following)[:1][0]
+                user_location = UsersLocations.objects.filter(user=following)[:1][0]
                 if self.IsUpdated(user_location.created_at):
                     locations.append(user_location)
             except IndexError:
@@ -195,7 +204,7 @@ class LocationView(APIView):
         try:
             lat, lng = data['lat'], data['lng']
             location, _ = Location.objects.get_or_create(lat=float(lat), lng=float(lng))
-            user_location = UserLocations(user=request.user, location=location)
+            user_location = UsersLocations(user=request.user, location=location)
             user_location.save()
         except KeyError:
             return Response({
@@ -205,10 +214,10 @@ class LocationView(APIView):
         return Response({
             'user_location': UserLocationsSerializer(user_location).data,
             'followings_locations': UserLocationsSerializer(users_location, many=True).data
-        },status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED)
+
 
 class InteractionView(APIView):
-
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
     serializer_classes = (UsersInteractionsSerializer,)
@@ -227,7 +236,8 @@ class InteractionView(APIView):
                 location, _ = Location.objects.get_or_create(**data['location'])
                 following = request.user.follows.get(**data['following'])
 
-                users_interaction = UsersInteractions(user=request.user, following=following, location=location, type=data['type'])
+                users_interaction = UsersInteractions(user=request.user, following=following, location=location,
+                                                      type=data['type'])
                 users_interaction.save()
 
             except AndroidUser.DoesNotExist:

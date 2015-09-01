@@ -4,15 +4,16 @@ import base64
 import random
 from django.core.files import File
 from api.api import CreateUser, AuthView
-from api.models import (AndroidUser, Location, UserLocations, UsersInteractions)
+from api.models import (AndroidUser,
+                        Location,
+                        UsersLocations)
 from datetime import datetime as dt
-from api.views import login_user
 
 import os
 
 BASE_DIR = os.path.dirname(__file__)
 
-# Api Views fixtues
+# Api Views fixtures
 @pytest.fixture
 def create_user_view():
     return CreateUser.as_view()
@@ -31,8 +32,7 @@ def user_required_fields():
 def user_data():
     data = {
             consts.USER_NAME: 'anonymous@gmail.com',
-            consts.FIRST_NAME: 'Anon',
-            consts.LAST_NAME: 'Anon',
+            consts.NAME: 'Anon Anon',
             consts.PASSWORD:'pass',
             consts.COUNTRY: 'Serbia',
             consts.CITY: 'Belgrade',
@@ -132,14 +132,14 @@ def locations():
 @pytest.fixture
 def user_locations(user,locations):
 
-    user_locations = [UserLocations(user=user, location=location).save() for location in locations]
+    user_locations = [UsersLocations(user=user, location=location).save() for location in locations]
 
     return user_locations
 
 @pytest.fixture
 def followings_locations(users, locations):
 
-    followings_locations = [UserLocations(user=user, location=location).save() for user in users for location in locations]
+    followings_locations = [UsersLocations(user=user, location=location).save() for user in users for location in locations]
 
     return followings_locations
 
@@ -150,7 +150,7 @@ def not_active_following_location(followings_locations):
 
     anon_user = AndroidUser.objects.get(username=username)
 
-    anon_locations = UserLocations.objects.filter(user=anon_user)
+    anon_locations = UsersLocations.objects.filter(user=anon_user)
 
     dates = ['2015-08-23T{0:02d}:00:00.00Z'.format(i)for i in range(len(anon_locations))]
     date_format = '%Y-%m-%dT%H:%M:%S.%fZ'

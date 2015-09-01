@@ -1,6 +1,9 @@
 from __future__ import unicode_literals, absolute_import
 
-from django.conf.urls import patterns, url
+# django
+from django.conf.urls import url
+
+# project
 from . import api
 
 urlpatterns = [
@@ -20,4 +23,4 @@ urlpatterns = [
     url(r'^add_follower/$', 'api.views.add_users_follow'),
     url(r'^update_location/$', 'api.views.update_location'),
     url(r'^friends_locations/$', 'api.views.all_followers'),
-    ]
+]

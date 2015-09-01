@@ -1,8 +1,7 @@
 
 # User required fields
 USER_NAME = 'username'
-FIRST_NAME = 'first_name'
-LAST_NAME = 'last_name'
+NAME = 'name'
 PASSWORD = 'password'
 COUNTRY = 'country'
 CITY = 'city'
@@ -13,11 +12,11 @@ PHONE_NUMBER = 'phone'
 REQUIRED_MESSAGE = 'This field is required.'
 INVALID_EMAIL_MSG = 'Enter a valid email address.'
 
-USER_REQUIRED_FIELDS = (USER_NAME, FIRST_NAME, LAST_NAME)
+USER_REQUIRED_FIELDS = (USER_NAME, NAME, PHONE_NUMBER)
 
 AUTH_ERROR_MESSAGE ='User is not authorized! Please, check username and password!'
 
-#interaction types
+# interaction types
 
 PHYSICAL = 'physical'
 CALL = 'call'

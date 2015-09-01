@@ -20,52 +20,66 @@ class UserLocation(models.Model):
 # TODO: This should be Userprofile manager
 class AndroidUserManager(BaseUserManager):
 
-    def create_user(self, username,first_name=None, last_name=None, country=None, city=None, gender=None,
+    def create_user(self, username,name=None, country=None, city=None, gender=None,
                     birth_day=None, password=None, phone=None):
 
         if not username:
             raise ValueError("User must have a username")
 
-        user = self.model(username=username, first_name=first_name,last_name=last_name,
+        user = self.model(username=username, name=name,
                           country=country,city=city, gender=gender, birth_day=birth_day, phone=phone)
 
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, username, first_name,last_name,country,city,gender,birth_day,password):
+    def create_superuser(self, username, name,country,city,gender,birth_day,password):
 
-        user = self.create_user(username=username,first_name=first_name,last_name=last_name,country=country,city=city,
+        user = self.create_user(username=username,name=name,country=country,city=city,
                                 gender=gender,birth_day=birth_day,password=password)
 
         user.save(using=self._db)
         return user
 
-#TODO: This should be User Profile, to be more generalized
 
+#TODO: This should be User Profile, to be more generalized
 class AndroidUser(AbstractBaseUser, PermissionsMixin):
 
     MALE = 'M'
     FEMALE = 'F'
+
     GENDER = (
         (MALE, 'Male'),
         (FEMALE, 'Female')
     )
+
+    follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
+    interactions = models.ManyToManyField('self', related_name='user interactions', through='UsersInteractions', through_fields=['user', 'following'])
+
     username = models.EmailField(max_length=50, unique=True, db_index=True, default='')
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    country = models.CharField(max_length=50, default='', blank=True)
-    city = models.CharField(max_length=50, default='', blank=True)
-    phone = models.CharField(max_length=15, unique=True)
-    image = models.ImageField(blank=True, upload_to='users_photo')
+    name = models.CharField(max_length=250, help_text="Please, use full name(e.g Peter Jackson).")
     gender = models.CharField(max_length=2, choices=GENDER, default=MALE, blank=True)
     birth_day = models.DateField(default=datetime.date(2013, 2, 1), blank=True)
-    follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
-    interaction = models.ManyToManyField('self', related_name='users interaction', through='UsersInteractions', through_fields=['user', 'following'])
-    location = models.ForeignKey(UserLocation, null=True)
+
+    phone = models.CharField(max_length=15, unique=True)
+    country = models.CharField(max_length=50, default='', blank=True)
+    city = models.CharField(max_length=50, default='', blank=True)
+    image = models.ImageField(blank=True, upload_to='users_photo')
+
     objects = AndroidUserManager()
 
+    def get_full_name(self):
+        # The user is identified by their email address
+        return self.username
+
+    def get_short_name(self):
+        # The user is identified by their email address
+        return self.username
+
     def natural_key(self):
+        return self.username
+
+    def __str__(self):
         return self.username
 
     def add_follower(self, user):
@@ -119,28 +133,15 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
     def as_json_dict(self):
         return {
             'username': self.username,
-            'first_name':self.first_name,
-            'last_name': self.last_name,
+            'name':self.name,
             'country':self.country,
             'city': self.city,
             'birth_day': str(self.birth_day)
         }
 
     USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['first_name', 'last_name','country','city','gender','birth_day']
+    REQUIRED_FIELDS = ['name', 'country', 'city', 'gender', 'birth_day', 'phone']
 
-
-# class UsersInteractions(models.Model):
-
-    # type = models.CharField(max_length=50)
-    # first_user = models.ForeignKey(AndroidUser, related_name='first_user')
-    # second_user = models.ForeignKey(AndroidUser, related_name='second_user', null=True)
-    # location = models.ForeignKey(UserLocation)
-
-    # start_time = models.DateTimeField(auto_now_add=True,blank=True)
-    # end_time = models.DateTimeField(blank=True, null=True)
-
-    # phone_number = models.CharField(max_length=50,blank=True, null=True)
 
 class UsersInteractions(models.Model):
 
@@ -157,17 +158,18 @@ class UsersInteractions(models.Model):
     type = models.CharField(max_length=25, choices=TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 class Location(models.Model):
     lng = models.FloatField()
     lat = models.FloatField()
 
-    users = models.ManyToManyField('AndroidUser', through='UserLocations')
+    users = models.ManyToManyField('AndroidUser', through='UsersLocations')
 
     def __str__(self):
         return ",".join((str(self.lng),str(self.lat)))
 
 
-class UserLocations(models.Model):
+class UsersLocations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     user = models.ForeignKey('AndroidUser')
@@ -176,16 +178,17 @@ class UserLocations(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+
 class LocationsOfInterest(models.Model):
 
     type_of = models.CharField(max_length=50, verbose_name='Restaurange, bar, library...')
-    decription = models.CharField(max_length=1000)
+    description = models.CharField(max_length=1000)
     image = models.ImageField(blank=True,upload_to='place_imgs')
 
-    #One to many to user
+    # One to many to user
     user = models.ForeignKey('AndroidUser')
 
-    # one to one to location
+    # One to one to location
     location = models.OneToOneField('Location')
 
     def __str__(self):

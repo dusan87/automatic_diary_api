@@ -1,38 +1,41 @@
 from __future__ import absolute_import
 
-from django.contrib.auth.models import User
+# django
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError as DjangoValidationError
+
+# rest framework
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import  (AndroidUser, Location, UserLocations, UsersInteractions)
 
+# project
+from .models import (AndroidUser, Location, UsersLocations, UsersInteractions)
 from api import consts
 
-#TODO: Create dynamic fields serializer
+
+# TODO: Create dynamic fields serializer
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = AndroidUser
-        fields = ('id', 'username', 'first_name',
-                  'last_name', 'country', 'city',
+        fields = ('id', 'username', 'name',
+                  'phone', 'country', 'city',
                   'image', 'gender', 'birth_day',)
 
 
 class LocationSerializer(serializers.ModelSerializer):
-
     class Meta:
-        model  = Location
-        fields = ('id','lng', 'lat')
+        model = Location
+        fields = ('id', 'lng', 'lat')
 
 
 class UserLocationsSerializer(serializers.ModelSerializer):
-
     location = LocationSerializer()
     user = UserSerializer()
 
     class Meta:
-        model  = UserLocations
+        model = UsersLocations
         fields = ('created_at', 'location', 'user')
+
 
 class UsersInteractionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
@@ -43,8 +46,8 @@ class UsersInteractionsSerializer(serializers.ModelSerializer):
         model = UsersInteractions
         fields = ('created_at', 'type', 'user', 'following', 'location')
 
-class InteractionsSerializer(serializers.BaseSerializer):
 
+class InteractionsSerializer(serializers.BaseSerializer):
     def to_internal_value(self, data):
         type_ = data.get('type')
         following_username = data.get('following_username')
@@ -64,7 +67,7 @@ class InteractionsSerializer(serializers.BaseSerializer):
 
         if not following_username and type_ == consts.PHYSICAL:
             raise ValidationError({
-                'following_username':'This field is required in case type is physical.'
+                'following_username': 'This field is required in case type is physical.'
             })
 
         if following_username:
@@ -75,23 +78,19 @@ class InteractionsSerializer(serializers.BaseSerializer):
                     'following_username': 'This field has invalid username email format.'
                 })
 
-        if not phone and type_ in (consts.CALL,consts.SMS):
+        if not phone and type_ in (consts.CALL, consts.SMS):
             raise ValidationError({
-                'phone':'This field is required in case type is either call or sms.'
+                'phone': 'This field is required in case type is either call or sms.'
             })
 
-        # if phone and not phone.isdigit():
-            # raise ValidationError({
-                # 'phone': 'This field must be a numeric.'
-            # })
         if not lat:
             raise ValidationError({
-                'lat':'This field is required.'
+                'lat': 'This field is required.'
             })
 
         if not lng:
             raise ValidationError({
-                'lng':'This field is required.'
+                'lng': 'This field is required.'
             })
 
         if not (-180.00 < float(lat) < 180.00):
@@ -105,28 +104,24 @@ class InteractionsSerializer(serializers.BaseSerializer):
             })
 
         validated_data = {
-                'type': type_,
-                'location': {
-                    'lat': lat,
-                    'lng':lng,
-                },
-                'phone': phone,
-                'username': following_username
-            }
-
-        validated_data['following'] =  {'phone': phone} if phone else {'username': following_username}
+            'type': type_,
+            'location': {
+                'lat': lat,
+                'lng': lng
+            },
+            'following': {'phone': phone} if phone else {'username': following_username}
+        }
 
         return validated_data
-
 
     def to_representation(self, obj):
 
         return {
-                'type': obj.type_,
-                'location': {
-                    'lat': obj.lat,
-                    'lng': obj.lng
-                },
-                'phone': obj.phone,
-                'username': obj.following_username
-            }
+            'type': obj.type_,
+            'location': {
+                'lat': obj.lat,
+                'lng': obj.lng
+            },
+            'phone': obj.phone,
+            'username': obj.following_username
+        }
