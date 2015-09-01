@@ -1,15 +1,19 @@
 from __future__ import absolute_import
 
-from datetime import datetime as dt
+from django.contrib.auth import login, logout
+from django.http import Http404
+from django.core.validators import RegexValidator
 from rest_framework import generics, permissions, mixins
 from rest_framework.authentication import (BasicAuthentication, SessionAuthentication)
 from rest_framework.views import APIView
-from .serializers import (UserSerializer, LocationSerializer, UserLocationsSerializer)
-from .models import (AndroidUser, Location, UserLocations)
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth import login, logout
-from django.http import Http404
+
+from datetime import datetime as dt
+from api import consts
+from .serializers import (UserSerializer, LocationSerializer,
+                          UserLocationsSerializer, UsersInteractionsSerializer, InteractionsSerializer)
+from .models import (AndroidUser, Location, UserLocations, UsersInteractions)
 
 class CreateUser(generics.CreateAPIView):
 
@@ -35,7 +39,7 @@ class AuthView(APIView):
         logout(request)
         return Response({
             'message': 'User has been successfully logged out.'
-        })
+            })
 
 
 class UserValidationView(APIView):
@@ -202,3 +206,38 @@ class LocationView(APIView):
             'user_location': UserLocationsSerializer(user_location).data,
             'followings_locations': UserLocationsSerializer(users_location, many=True).data
         },status=status.HTTP_201_CREATED)
+
+class InteractionView(APIView):
+
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_classes = (UsersInteractionsSerializer,)
+
+    types = (consts.CALL, consts.SMS, consts.PHYSICAL)
+
+    def post(self, request, format=None):
+
+        assert request.data
+
+        serializer = InteractionsSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                data = serializer.validated_data
+                location, _ = Location.objects.get_or_create(**data['location'])
+                following = request.user.follows.get(**data['following'])
+
+                users_interaction = UsersInteractions(user=request.user, following=following, location=location, type=data['type'])
+                users_interaction.save()
+
+            except AndroidUser.DoesNotExist:
+                return Response({
+                    'message': "There is no such a username or phone number of user's followings."
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            return Response({
+                'interaction': UsersInteractionsSerializer(users_interaction).data
+            }, status=status.HTTP_201_CREATED)
+
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

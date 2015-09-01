@@ -1,5 +1,9 @@
+from __future__ import absolute_import
+
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (AbstractBaseUser, BaseUserManager, PermissionsMixin)
+
+from .validators import validate_phone_number
 import datetime
 # Create your models here.
 
@@ -17,13 +21,13 @@ class UserLocation(models.Model):
 class AndroidUserManager(BaseUserManager):
 
     def create_user(self, username,first_name=None, last_name=None, country=None, city=None, gender=None,
-                    birth_day=None, password=None):
+                    birth_day=None, password=None, phone=None):
 
         if not username:
             raise ValueError("User must have a username")
 
         user = self.model(username=username, first_name=first_name,last_name=last_name,
-                          country=country,city=city, gender=gender, birth_day=birth_day)
+                          country=country,city=city, gender=gender, birth_day=birth_day, phone=phone)
 
         user.set_password(password)
         user.save(using=self._db)
@@ -52,10 +56,12 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=50)
     country = models.CharField(max_length=50, default='', blank=True)
     city = models.CharField(max_length=50, default='', blank=True)
+    phone = models.CharField(max_length=15, unique=True)
     image = models.ImageField(blank=True, upload_to='users_photo')
     gender = models.CharField(max_length=2, choices=GENDER, default=MALE, blank=True)
     birth_day = models.DateField(default=datetime.date(2013, 2, 1), blank=True)
     follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
+    interaction = models.ManyToManyField('self', related_name='users interaction', through='UsersInteractions', through_fields=['user', 'following'])
     location = models.ForeignKey(UserLocation, null=True)
     objects = AndroidUserManager()
 
@@ -65,6 +71,14 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
     def add_follower(self, user):
         if user not in self.follows.all():
             self.follows.add(user)
+
+    def is_following(self, **kwargs):
+        try:
+            self.follows.get(**kwargs)
+        except self.DoesNotExist:
+            return False
+
+        return True
 
     def get_following_users(self):
         return [user.username for user in self.follows.all()]
@@ -116,18 +130,32 @@ class AndroidUser(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['first_name', 'last_name','country','city','gender','birth_day']
 
 
+# class UsersInteractions(models.Model):
+
+    # type = models.CharField(max_length=50)
+    # first_user = models.ForeignKey(AndroidUser, related_name='first_user')
+    # second_user = models.ForeignKey(AndroidUser, related_name='second_user', null=True)
+    # location = models.ForeignKey(UserLocation)
+
+    # start_time = models.DateTimeField(auto_now_add=True,blank=True)
+    # end_time = models.DateTimeField(blank=True, null=True)
+
+    # phone_number = models.CharField(max_length=50,blank=True, null=True)
+
 class UsersInteractions(models.Model):
 
-    type = models.CharField(max_length=50)
-    first_user = models.ForeignKey(AndroidUser, related_name='first_user')
-    second_user = models.ForeignKey(AndroidUser, related_name='second_user', null=True)
-    location = models.ForeignKey(UserLocation)
+    TYPES = (
+        ('physical','physical'),
+        ('call','call'),
+        ('sms','sms')
+    )
 
-    start_time = models.DateTimeField(auto_now_add=True,blank=True)
-    end_time = models.DateTimeField(blank=True, null=True)
+    user = models.ForeignKey('AndroidUser')
+    following = models.ForeignKey('AndroidUser')
 
-    phone_number = models.CharField(max_length=50,blank=True, null=True)
-
+    location = models.OneToOneField('Location')
+    type = models.CharField(max_length=25, choices=TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class Location(models.Model):
     lng = models.FloatField()
