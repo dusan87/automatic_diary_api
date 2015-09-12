@@ -185,17 +185,17 @@ class TestSuggestedUsers():
         response =  client.post('/users/', HTTP_AUTHORIZATION=user_base_creds)
         data = response.data
 
-        assert response.status_code == 403
+        assert response.status_code == 405
         assert 'detail' in data.keys()
-        assert data['detail'] == 'You do not have permission to perform this action.'
+        assert data['detail'] == 'Method "POST" not allowed.'
 
     @postgres_db
-    def test_list_users_except_current_user_and_users_without_image(self, client, user_base_creds, user, users):
+    def test_list_users_except_current_user_and_users_without_image_and_already_followed(self, client, user_base_creds, user, users):
         response =  client.get('/users/', HTTP_AUTHORIZATION=user_base_creds)
-        data = response.data
-
         assert response.status_code == 200
-        assert data
+        assert response.data
+
+        data = response.data
 
         assert data['count'] == 6
 

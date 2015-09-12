@@ -83,7 +83,7 @@ class UserValidationView(APIView):
         }, status=403)
 
 
-class ListUsersView(APIView):
+class ListUsersView(generics.ListAPIView):
     """
     Suggestion list of potentical user's followers
           - List of all users in the system

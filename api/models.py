@@ -5,12 +5,13 @@ import datetime
 
 # django
 from django.db import models
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.models import (AbstractBaseUser,
                                         BaseUserManager,
                                         PermissionsMixin)
 # Create your models here.
-
+# TODO: CREATE PROPER RELATED_NAME values FOR EACH RELATIONSHIP
 
 # TODO: This should be just location, not user location
 class UserLocation(models.Model):
@@ -59,9 +60,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         (FEMALE, 'Female')
     )
 
-    follows = models.ManyToManyField('self', related_name="follow", symmetrical=False)
-    interactions = models.ManyToManyField('self', through='UsersInteractions', through_fields=['user', 'following'],
-                                          symmetrical=False)
+    follows = models.ManyToManyField('self', related_name="followers", symmetrical=False, help_text=_('friendship relation'))
+    interactions = models.ManyToManyField('self', through='UsersInteractions', through_fields=('user', 'partner'))
 
     email = models.EmailField(_("email address"), max_length=50, unique=True, db_index=True)
     first_name = models.CharField(_("first name"), max_length=25)
@@ -113,6 +113,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_following_users(self):
         return [user.email for user in self.follows.all()]
+
+    def get_interactions(self):
+        #TODO: Implement
+        pass
 
     def check_location(self, latitude, longitude):
         if self.location and self.location.lat == latitude and self.location.long == longitude:
@@ -166,10 +170,10 @@ class UsersInteractions(models.Model):
         ('sms','sms')
     )
 
-    user = models.ForeignKey('User', related_name='users')
-    following = models.ForeignKey('User', related_name='followings')
+    user = models.ForeignKey('User', related_name = 'interactor')
+    partner = models.ForeignKey('User', related_name= 'partner', help_text=_('partner in interaction'))
 
-    location = models.OneToOneField('Location')
+    location = models.ForeignKey('Location', related_name='users_locations')
     type = models.CharField(max_length=25, choices=TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -178,7 +182,7 @@ class Location(models.Model):
     lng = models.FloatField()
     lat = models.FloatField()
 
-    users = models.ManyToManyField('User', through='UsersLocations')
+    tracked_users = models.ManyToManyField('User', through='UsersLocations')
 
     def __str__(self):
         return ",".join((str(self.lng),str(self.lat)))
@@ -187,8 +191,8 @@ class Location(models.Model):
 class UsersLocations(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    user = models.ForeignKey('User')
-    location = models.ForeignKey('Location')
+    user = models.ForeignKey('User', related_name='locations')
+    location = models.ForeignKey('Location', related_name='users')
 
     class Meta:
         ordering = ['-created_at']
@@ -196,15 +200,19 @@ class UsersLocations(models.Model):
 
 class LocationsOfInterest(models.Model):
 
-    type_of = models.CharField(max_length=50, verbose_name='Restaurants, bar, library...')
+    # many to one
+    user = models.ForeignKey('User', related_name='places')  # TODO: check this related_name
+    location = models.ForeignKey('Location', related_name='of_interests')
+
+    type = models.CharField(max_length=50, verbose_name='Restaurants, bar, library...')
     description = models.CharField(max_length=1000)
-    image = models.ImageField(blank=True,upload_to='place_imgs')
+    image = models.ImageField(upload_to='place_imgs', blank=True)
 
-    # One to many to user
-    user = models.ForeignKey('User')
+    created_at = models.DateTimeField(_("creation time"),auto_now_add=True)
+    updated_at = models.DateTimeField(_("last updated"))
 
-    # One to one to location
-    location = models.OneToOneField('Location')
+    class Meta:
+        ordering = ['-updated_at']
 
     def __str__(self):
-        return self.type_of
+        return self.type
