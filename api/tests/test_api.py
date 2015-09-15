@@ -1,7 +1,9 @@
 import consts
 import pytest
+import json
 from datetime import datetime as dt
-from api.models import UsersInteractions
+from api.models import (UsersInteractions,
+                        LocationsOfInterest)
 
 postgres_db = pytest.mark.django_db
 
@@ -474,7 +476,7 @@ class TestUsersInteractions():
         interactions = dict(consts.INTERACTIONS)
         data = {
                 'type': interactions[consts.PHYSICAL],
-                'following_email':'anonymous',
+                'partner_email':'anonymous',
                 'lat': 43.31231,
                 'lng': -34.00122
             }
@@ -485,13 +487,13 @@ class TestUsersInteractions():
         assert hasattr(response, 'data')
 
         data = response.data
-        assert data['following_email']
-        assert data['following_email'] == 'This field has invalid email format.'
+        assert data['partner_email']
+        assert data['partner_email'] == 'This field has invalid email format.'
 
     @postgres_db
     def test_without_email_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds,user):
         """
-        Request params data without following_email and phone number.
+        Request params data without partner_email and phone number.
         It should complaint for phone param since the type of interaction is call/sms.
         """
         interactions = dict(consts.INTERACTIONS)
@@ -513,7 +515,7 @@ class TestUsersInteractions():
         interactions = dict(consts.INTERACTIONS)
         data = {
                 'type': interactions[consts.PHYSICAL],
-                'following_email': following_user.email,
+                'partner_email': following_user.email,
             }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
@@ -527,7 +529,7 @@ class TestUsersInteractions():
 
         data = {
                 'type': "Wrong",
-                'following_email': following_user.email,
+                'partner_email': following_user.email,
                 'lat': -43.023131,
                 'lng': 43.1321321
             }
@@ -542,11 +544,11 @@ class TestUsersInteractions():
     def test_storing_users_interaction_physical(self, client, user_base_creds, user, following_email, following):
 
         #number of interactions between users before request
-        interactions_no_before = len(UsersInteractions.objects.filter(user=user, following=following))
+        interactions_no_before = len(UsersInteractions.objects.filter(user=user, partner=following))
 
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'following_email': following_email,
+                'partner_email': following_email,
                 'type': interactions[consts.PHYSICAL],
                 'lat': 43.31231,
                 'lng': -34.00122,
@@ -563,7 +565,7 @@ class TestUsersInteractions():
         assert data['interaction']['location']
         assert data['interaction']['type'] == interactions[consts.PHYSICAL]
 
-        interactions_no_after =  len(UsersInteractions.objects.filter(user=user, following=following))
+        interactions_no_after =  len(UsersInteractions.objects.filter(user=user, partner=following))
 
         #number of interactions should be increase for one
         assert interactions_no_before + 1 == interactions_no_after
@@ -588,12 +590,12 @@ class TestUsersInteractions():
         assert data
         assert data['interaction']
         assert data['interaction']['user']
-        assert data['interaction']['following']
+        assert data['interaction']['partner']
         assert data['interaction']['created_at']
         assert data['interaction']['location']
         assert data['interaction']['type'] and data['interaction']['type'] == consts.CALL
         assert user.is_following(**{
-            'id':data['interaction']['following']['id']
+            'id':data['interaction']['partner']['id']
         })
 
     @postgres_db
@@ -617,4 +619,199 @@ class TestUsersInteractions():
 
         data = response.data
         assert data
-        assert data['message'] == "There is no such a email or phone number of user's followings."
+        assert data['partner'] == "There is no such a email or phone number of user's followings."
+
+
+class TestLocationsOfInterest():
+
+    # creation
+    @postgres_db
+    def test_create_location_fails_required_params(self, client, user_base_creds, user, place_image, users,):
+        request_data = {
+            'lat': -43.341431,
+            'lng': 20.231123,
+            'description': 'There is amazing view on Pariz.',
+            'image': place_image,
+        }
+
+        response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 400
+        assert response.data
+
+        assert response.data['type'] == 'This field is required.'
+
+    # @postgres_db
+    # def test_create_location_with_default_image_if_there_is_no_uploaded_image_sent(self, client, user_base_creds, user, place_image):
+        # request_data = {
+            # 'lat': -43.341431,
+            # 'lng': 20.231123,
+            # 'type':'clambing',
+            # 'description':'There is amazing view on Pariz.',
+            # 'image':place_image
+        # }
+
+        # response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
+
+        # assert response.status_code == 201
+        # assert response.data
+
+        # data = response.data
+        # assert data['id']
+        # assert data['type'] == request_data['type']
+        # assert data['image']
+        # assert data['description']
+        # assert data['created_at']
+        # assert data['updated_at']
+        # assert data['location']['lat']
+        # assert data['location']['lng']
+
+    # @postgres_db
+    # def test_create_place(self, client, user_base_creds, user, place_image):
+    #
+    #     request_data = {
+    #         'lat': -43.341431,
+    #         'lng': 20.231123,
+    #         'type':'enjoying',
+    #         'description':'There is amazing view on Pariz.',
+    #         'image': place_image
+    #     }
+    #
+    #     response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
+    #
+    #     assert response.status_code == 201
+    #     assert response.data
+    #     data = response.data
+    #
+    #     assert data['id']
+    #     assert data['type'] == request_data['type']
+    #     assert data['image']
+    #     assert data['description']
+    #     assert data['created_at']
+    #     assert data['updated_at']
+    #     assert data['location']['lat']
+    #     assert data['location']['lng']
+
+    # Get resources
+    @postgres_db
+    def test_get_place(self, client, user_base_creds, place):
+        url = '/place/%i/' % place.id
+
+        response = client.get(url, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 200
+        assert response.data
+
+        data = response.data
+
+        assert data['id'] == place.id
+        assert data['type']
+        assert data['image']
+        assert data['description']
+        assert data['created_at']
+        assert data['updated_at']
+        assert data['location']['lat']
+        assert data['location']['lng']
+
+    @postgres_db
+    def test_get_places(self, client, user_base_creds, user, user_places, users_places, locations):
+        """
+        Get all user posted places and his followins' places
+        """
+        response = client.get('/places/', HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 200
+        assert response.data
+
+        data = response.data
+        assert response.data['places']
+        assert response.data['places'].has_key('user_places')
+        assert response.data['places'].has_key('following_places')
+
+        user_places = response.data['places']['user_places']
+        followings_places = response.data['places']['following_places']
+
+        assert len(user_places) > 0
+
+        # it's because I set fixture to create for all fixture locations places for all users
+        # so, logic user's followings multipli by lenght of locations(places)
+        assert len(followings_places) == len(user.follows.all()) * len(locations)
+
+        for u_place in user_places:
+            assert u_place['id']
+            assert u_place['type']
+            assert u_place['image']
+            assert u_place['description']
+            assert u_place['created_at']
+            assert u_place['updated_at']
+            assert u_place['location']['lat']
+            assert u_place['location']['lng']
+
+        for f_place in followings_places:
+            assert f_place['id']
+            assert f_place['type']
+            assert f_place['image']
+            assert f_place['description']
+            assert f_place['created_at']
+            assert f_place['updated_at']
+            assert f_place['location']['lat']
+            assert f_place['location']['lng']
+
+    # Upgrade
+    @postgres_db
+    def test_edit_type_of_location(self, client, user_base_creds, user, place):
+
+        url = '/place/%i/' % place.id
+        request_data = {
+            'type':'clubing',
+            'description':'This is a good club at the heart of Sidney.',
+        }
+
+
+        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds, content_type='application/json')
+
+        import pdb;pdb.set_trace()
+        assert response.status_code == 200
+        assert response.data
+
+        data = response.data
+
+        assert data['id']
+        assert data['type'] == request_data['type']
+        assert data['image']
+        assert data['description'] == request_data['description']
+        assert data['created_at']
+        assert data['updated_at']
+        assert data['location']['lat']
+        assert data['location']['lng']
+
+    @postgres_db
+    def test_trying_to_edit_place_that_user_is_not_owner(self, client, user_base_creds, user, random_place):
+
+        url = '/place/{}/'.format(random_place.id)
+        request_data = {
+                'type':'swimming',
+                'description':'This is a good swimming club at the heart of Sidney.'
+            }
+
+        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds, content_type='application/json')
+
+        assert response.status_code == 403
+        assert response.data
+        assert response.data['detail']
+        assert response.data['detail'] == 'You do not have permission to perform this action.'
+
+    # Delete
+    @postgres_db
+    def test_delete_place(self, client, user_base_creds, user, place):
+        url = '/place/%i/' % place.id
+
+        assert LocationsOfInterest.objects.count() == 1
+
+        response  = client.delete(url, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 204
+
+        assert not response.data
+
+        assert LocationsOfInterest.objects.count() == 0

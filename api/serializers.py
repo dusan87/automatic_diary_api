@@ -1,5 +1,8 @@
 from __future__ import absolute_import
 
+# builtins
+from datetime import datetime as dt
+
 # django
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -9,17 +12,28 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 # project
-from .models import (User, Location, UsersLocations, UsersInteractions)
+from .models import (User,
+                     Location,
+                     UsersLocations,
+                     UsersInteractions,
+                     LocationsOfInterest)
+
 from api import consts
 
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 # TODO: Create dynamic fields serializer
 class UserSerializer(serializers.ModelSerializer):
+
+    follows = serializers.StringRelatedField(many=True)
+    # TODO: think about serializing places
+
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name',
                   'phone', 'country', 'city',
-                  'image', 'gender', 'birth_day',)
+                  'image', 'gender', 'birth_day',
+                  'follows', 'interactions')
 
 
 class LocationSerializer(serializers.ModelSerializer):
@@ -27,33 +41,62 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = ('id', 'lng', 'lat')
 
-
-class UsersLocationsSerializer(serializers.ModelSerializer):
-    location = LocationSerializer()
-    user = UserSerializer()
-
-    class Meta:
-        model = UsersLocations
-        fields = ('created_at', 'location', 'user')
-
-
 class UsersInteractionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-    following = UserSerializer()
+    partner = UserSerializer()
     location = LocationSerializer()
 
     class Meta:
         model = UsersInteractions
-        fields = ('created_at', 'type', 'user', 'following', 'location')
+        fields = ('created_at', 'type', 'user', 'partner', 'location')
 
+class UsersLocationsSerializer(serializers.BaseSerializer):
+
+    def to_internal_value(self, data):
+        lat = data.get('lat')
+        lng = data.get('lng')
+
+        if not lat:
+            raise ValidationError({
+                'lat': 'This field is required.'
+            })
+
+        if not lng:
+            raise ValidationError({
+                'lng': 'This field is required.'
+            })
+
+        return {
+            'location': {
+                'lat': lat,
+                'lng': lng
+            },
+            'user': self.context['user']
+        }
+
+    def to_representation(self, obj):
+        return {
+                'location': LocationSerializer(obj.location).data,
+                'created_at': obj.created_at.strftime(DATE_FORMAT),
+                'user': UserSerializer(obj.user).data
+            }
+
+    def create(self, validated_data):
+        location, _ = Location.objects.get_or_create(**validated_data.pop('location'))
+
+        return UsersLocations.objects.create(location=location, **validated_data)
 
 class InteractionsSerializer(serializers.BaseSerializer):
+
     def to_internal_value(self, data):
         type_ = data.get('type')
-        following_email = data.get('following_email')
+        partner_email = data.get('partner_email')
         phone = data.get('phone')
         lat = data.get('lat')
         lng = data.get('lng')
+
+        partner_data = {'phone': phone} if phone else {'email': partner_email}
+        user = self.context['user']
 
         if not type_:
             raise ValidationError({
@@ -65,17 +108,17 @@ class InteractionsSerializer(serializers.BaseSerializer):
                 'type': 'This field must have one of next values (call, sms, physical).'
             })
 
-        if not following_email and type_ == consts.PHYSICAL:
+        if not partner_email and type_ == consts.PHYSICAL:
             raise ValidationError({
-                'following_email': 'This field is required in case type is physical.'
+                'partner_email': 'This field is required in case type is physical.'
             })
 
-        if following_email:
+        if partner_email:
             try:
-                validate_email(following_email)
+                validate_email(partner_email)
             except DjangoValidationError:
                 raise ValidationError({
-                    'following_email': 'This field has invalid email format.'
+                    'partner_email': 'This field has invalid email format.'
                 })
 
         if not phone and type_ in (consts.CALL, consts.SMS):
@@ -103,25 +146,125 @@ class InteractionsSerializer(serializers.BaseSerializer):
                 'lng': "This field must be a value between (-180.00,180.00)."
             })
 
+        try:
+            partner = user.follows.get(**partner_data)
+        except User.DoesNotExist:
+            raise ValidationError({
+                'partner': "There is no such a email or phone number of user's followings."
+            })
+
         validated_data = {
-            'type': type_,
+            'type_': type_,
             'location': {
                 'lat': lat,
                 'lng': lng
             },
-            'following': {'phone': phone} if phone else {'email': following_email}
+            'partner': partner,
+            'user': self.context['user']
         }
 
         return validated_data
 
     def to_representation(self, obj):
-
         return {
             'type': obj.type_,
-            'location': {
-                'lat': obj.lat,
-                'lng': obj.lng
-            },
-            'phone': obj.phone,
-            'email': obj.following_email
+            'created_at': obj.created_at.strftime(DATE_FORMAT),
+            'location': LocationSerializer(obj.location).data,
+            'partner': UserSerializer(obj.partner).data,
+            'user': UserSerializer(obj.user).data
         }
+
+    def create(self, validated_data):
+        location, _ = Location.objects.get_or_create(**validated_data.pop('location'))
+
+        return UsersInteractions.objects.create(location=location, **validated_data)
+
+
+class UserRelatedField(serializers.RelatedField):
+
+    queryset = User.objects.all()
+
+    # def get_queryset(self):
+    #     return User.objects.all()
+    #
+    # def get_attribute(self, instance):
+    #     import pdb;pdb.set_trace()
+    #
+    # def get_validators(self):
+    #     import pdb;pdb.set_trace()
+
+    def to_internal_value(self, data):
+        return data
+
+    def to_representation(self, value):
+        return UserSerializer(value).data
+
+
+class TMPPlaceSerializer(serializers.ModelSerializer):
+    location = LocationSerializer()
+    user = UserRelatedField()
+
+    class Meta:
+        model = LocationsOfInterest
+        fields = ('id', 'type', 'description', 'image', 'updated_at', 'user', 'location', 'created_at')
+
+
+class PlaceSerializer(serializers.BaseSerializer):
+
+
+    def to_internal_value(self, data):
+        lat = data.get('lat')
+        lng = data.get('lng')
+        type_ = data.get('type')
+        description = data.get('description')
+        image = data.get('image', '')
+        updated_at = dt.utcnow()
+
+        if not lat:
+            raise ValidationError({
+                'lat': 'This field is required.'
+            })
+
+        if not lng:
+            raise ValidationError({
+                'lng': 'This field is required.'
+            })
+
+        if not type_:
+            raise ValidationError({
+                'type': 'This field is required.'
+            })
+
+        if not description:
+            raise ValidationError({
+                'description': 'This field is required.'
+            })
+
+        return {
+            'type_': type_,
+            'location': {
+                'lat': lat,
+                'lng': lng
+            },
+            'user': self.context['user'],
+            'updated_at': updated_at,
+            'image': image,
+            'description': description
+        }
+
+    def to_representation(self, obj):
+        return {
+            'id': obj.id,
+            'type': obj.type_,
+            'description': obj.description,
+            'image': obj.image.url,
+            'updated_at': obj.updated_at.strftime(DATE_FORMAT),
+            'created_at': obj.created_at.strftime(DATE_FORMAT),
+            'location': LocationSerializer(obj.location).data,
+            'user': UserSerializer(obj.user).data
+        }
+
+    def create(self, validated_data):
+        location, _ = Location.objects.get_or_create(**validated_data.pop('location'))
+
+        return LocationsOfInterest.objects.create(location=location, **validated_data)

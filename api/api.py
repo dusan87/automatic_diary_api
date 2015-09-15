@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 # builtins
+import json
 from datetime import datetime as dt
 
 # django
@@ -16,17 +17,22 @@ from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 # project
 from api import consts
 from .serializers import (UserSerializer,
                           UsersLocationsSerializer,
                           UsersInteractionsSerializer,
-                          InteractionsSerializer)
+                          InteractionsSerializer,
+                          PlaceSerializer,
+                          LocationSerializer)
 from .models import (User,
                      Location,
                      UsersLocations,
-                     UsersInteractions)
+                     UsersInteractions,
+                     LocationsOfInterest)
+from .permissions import (IsOwnerOrReadOnly, )
 
 
 class CreateUser(generics.CreateAPIView):
@@ -200,53 +206,89 @@ class LocationView(APIView):
         users_location = self.get_queryset()
         data = request.data
 
-        try:
-            lat, lng = data['lat'], data['lng']
-            location, _ = Location.objects.get_or_create(lat=float(lat), lng=float(lng))
-            user_location = UsersLocations(user=request.user, location=location)
-            user_location.save()
-        except KeyError:
+        serializer = UsersLocationsSerializer(data=data, context={'user': request.user})
+
+        if serializer.is_valid():
+            location = serializer.save()
+
             return Response({
-                'message': 'Params lat and long are required.'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        return Response({
-            'user_location': UsersLocationsSerializer(user_location).data,
-            'followings_locations': UsersLocationsSerializer(users_location, many=True).data
-        }, status=status.HTTP_201_CREATED)
-
+                'user_location': UsersLocationsSerializer(location).data,
+                'followings_locations': UsersLocationsSerializer(users_location, many=True).data
+                }, status=status.HTTP_201_CREATED)
 
 class InteractionView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = UsersInteractionsSerializer
-
-    types = (consts.CALL, consts.SMS, consts.PHYSICAL)
 
     def post(self, request, format=None):
 
         assert request.data
 
-        serializer = InteractionsSerializer(data=request.data)
+        serializer = InteractionsSerializer(data=request.data, context={'user':request.user})
 
         if serializer.is_valid():
-            try:
-                data = serializer.validated_data
-                location, _ = Location.objects.get_or_create(**data['location'])
-                following = request.user.follows.get(**data['following'])
-
-                users_interaction = UsersInteractions(user=request.user, following=following, location=location,
-                                                      type=data['type'])
-                users_interaction.save()
-
-            except User.DoesNotExist:
-                return Response({
-                    'message': "There is no such a email or phone number of user's followings."
-                }, status=status.HTTP_404_NOT_FOUND)
-
+            users_interaction = serializer.save()
             return Response({
-                'interaction': UsersInteractionsSerializer(users_interaction).data
+                'interaction': InteractionsSerializer(users_interaction).data
             }, status=status.HTTP_201_CREATED)
 
+        elif serializer.errors.has_key('partner'):
+            return Response(serializer.errors, status=status.HTTP_404_NOT_FOUND)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class PlacesView(generics.ListCreateAPIView):
+    """
+    By convinient we call locations of interest as 'Places'
+
+    - List locations of interest of current user and all his followings
+    """
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PlaceSerializer
+
+    def get_queryset(self,):
+        """
+        List user places
+        List user followings
+        Then for each following list places and extend the list.
+        """
+        user = self.request.user
+        user_places = user.places.all()
+        following_users = user.follows.all()
+        following_places = LocationsOfInterest.objects.filter(user__in=following_users)
+        return (user_places, following_places)
+
+    def list(self, request, **kwargs):
+        user_places, following_places = self.get_queryset()
+
+        return Response({
+            'places': {
+                'user_places': PlaceSerializer(user_places, many=True).data,
+                'following_places': PlaceSerializer(following_places, many=True).data,
+            }
+        })
+
+    def create(self, request, *args, **kwargs):
+
+        data = request.data
+
+        serializer = PlaceSerializer(data=data, context={'user': request.user})
+
+        if serializer.is_valid(raise_exception=True):
+            place = serializer.save()
+
+            return Response(PlaceSerializer(place).data, status=status.HTTP_201_CREATED)
+
+
+class PlaceView(generics.RetrieveUpdateDestroyAPIView):
+
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
+    permission_classes = (permissions.IsAuthenticated, IsOwnerOrReadOnly)
+    serializer_class = PlaceSerializer
+    queryset = LocationsOfInterest.objects.all()
+
+    def put(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)

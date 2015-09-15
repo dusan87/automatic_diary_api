@@ -28,3 +28,7 @@ INTERACTIONS = (
     (CALL, CALL),
     (SMS, SMS)
 )
+
+# additional consts
+
+DEFAULT_IMAGE = '/static/images/places/default/place_icon.png'

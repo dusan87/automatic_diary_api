@@ -174,7 +174,7 @@ class UsersInteractions(models.Model):
     partner = models.ForeignKey('User', related_name= 'partner', help_text=_('partner in interaction'))
 
     location = models.ForeignKey('Location', related_name='users_locations')
-    type = models.CharField(max_length=25, choices=TYPES)
+    type_ = models.CharField(max_length=25, choices=TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -204,7 +204,7 @@ class LocationsOfInterest(models.Model):
     user = models.ForeignKey('User', related_name='places')  # TODO: check this related_name
     location = models.ForeignKey('Location', related_name='of_interests')
 
-    type = models.CharField(max_length=50, verbose_name='Restaurants, bar, library...')
+    type_ = models.CharField(max_length=50, verbose_name='Restaurants, bar, library...')
     description = models.CharField(max_length=1000)
     image = models.ImageField(upload_to='place_imgs', blank=True)
 
@@ -215,4 +215,4 @@ class LocationsOfInterest(models.Model):
         ordering = ['-updated_at']
 
     def __str__(self):
-        return self.type
+        return self.type_

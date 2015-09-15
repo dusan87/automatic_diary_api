@@ -6,7 +6,8 @@ from django.core.files import File
 from api.api import CreateUser, AuthView
 from api.models import (User,
                         Location,
-                        UsersLocations)
+                        UsersLocations,
+                        LocationsOfInterest)
 from datetime import datetime as dt
 
 import os
@@ -31,15 +32,15 @@ def user_required_fields():
 @pytest.fixture
 def user_data():
     data = {
-            consts.EMAIL: 'anonymous@gmail.com',
-            consts.FIRST_NAME: 'Anon',
-            consts.LAST_NAME: ' Anon',
-            consts.PASSWORD:'pass',
-            consts.COUNTRY: 'Serbia',
-            consts.CITY: 'Belgrade',
-            consts.GENDER: 'M',
-            consts.PHONE_NUMBER: '+381645227594'
-        }
+        consts.EMAIL: 'anonymous@gmail.com',
+        consts.FIRST_NAME: 'Anon',
+        consts.LAST_NAME: ' Anon',
+        consts.PASSWORD:'pass',
+        consts.COUNTRY: 'Serbia',
+        consts.CITY: 'Belgrade',
+        consts.GENDER: 'M',
+        consts.PHONE_NUMBER: '+381645227594'
+    }
 
     return data
 
@@ -98,12 +99,12 @@ def users(user_data, image_path, user, user_with_image):
         user_data[consts.PHONE_NUMBER] = '+381' + str(random.randint(60,69)) + str(random.randint(0000000,9999999))
         usr = User.objects.create_user(birth_day=dt.now(), **user_data)
 
-        if i % 2 == 0: #each second user has image
+        if i % 2 == 0:  # each second user has image
             usr.image = File(open(image_path))
             usr.save()
             assert usr.pk
 
-            if i % 4 == 0: # add follows for user
+            if i % 4 == 0:  # add follows for user
                 user.add_follower(usr)
 
         users.append(usr)
@@ -178,3 +179,74 @@ def following(users):
         return 'There is no such a User with this email!'
 
     return following
+
+
+# Places = Locations of Interests
+
+def create_place(location, user, image):
+    types = ('chilling', 'clubing', 'library', 'meeting')
+    descriptions = ('Amazing!', "Let's get it!", "Something amazing!")
+
+    place = LocationsOfInterest.objects.create(description=random.choice(descriptions),
+                                               type_=random.choice(types),
+                                               updated_at=dt.utcnow(),
+                                               image=image,
+                                               user=user,
+                                               location=location)
+
+
+    return place
+
+
+@pytest.fixture
+def place_image(image_path):
+    return File(open(image_path))
+
+@pytest.fixture
+def place(user, locations, image_path):
+
+    location = locations[0]
+    description = 'There is amazing iceream.'
+    type_of = 'chilling'
+    last_update = dt.utcnow()
+    image = File(open(image_path))
+
+    place = LocationsOfInterest.objects.create(description=description,
+                                               type_=type_of,
+                                               updated_at=last_update,
+                                               image=image,
+                                               user=user,
+                                               location=location)
+
+    return place
+
+@pytest.fixture
+def user_places(user, locations, image_path):
+
+    types = ('chilling', 'clubing', 'library', 'meeting')
+    descriptions = ('Amazing!', "Let's get it!", "Something amazing!")
+    image = File(open(image_path))
+
+    def _place(location):
+
+        place = LocationsOfInterest.objects.create(description=random.choice(descriptions),
+                                               type_=random.choice(types),
+                                               updated_at=dt.utcnow(),
+                                               image=image,
+                                               user=user,
+                                               location=location)
+        return place
+
+    places = [_place(location) for location in locations]
+
+    return places
+
+@pytest.fixture
+def users_places(locations, users, image_path):
+    places = [create_place(location, user, File(open(image_path))) for user in users for location in locations]
+
+    return places
+
+@pytest.fixture
+def random_place(users_places):
+    return random.choice(users_places)
