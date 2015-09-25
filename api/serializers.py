@@ -22,9 +22,9 @@ from api import consts
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
+
 # TODO: Create dynamic fields serializer
 class UserSerializer(serializers.ModelSerializer):
-
     follows = serializers.StringRelatedField(many=True)
     # TODO: think about serializing places
 
@@ -41,6 +41,7 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = ('id', 'lng', 'lat')
 
+
 class UsersInteractionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     partner = UserSerializer()
@@ -49,6 +50,7 @@ class UsersInteractionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UsersInteractions
         fields = ('created_at', 'type', 'user', 'partner', 'location')
+
 
 class UsersLocationsSerializer(serializers.BaseSerializer):
 
@@ -76,15 +78,19 @@ class UsersLocationsSerializer(serializers.BaseSerializer):
 
     def to_representation(self, obj):
         return {
-                'location': LocationSerializer(obj.location).data,
-                'created_at': obj.created_at.strftime(DATE_FORMAT),
-                'user': UserSerializer(obj.user).data
-            }
+            'location': LocationSerializer(obj.location).data,
+            'created_at': obj.created_at.strftime(DATE_FORMAT),
+            'user': UserSerializer(obj.user).data
+        }
 
     def create(self, validated_data):
         location, _ = Location.objects.get_or_create(**validated_data.pop('location'))
 
         return UsersLocations.objects.create(location=location, **validated_data)
+
+    def update(self, instance, validated_data):
+        pass
+
 
 class InteractionsSerializer(serializers.BaseSerializer):
 
@@ -179,19 +185,12 @@ class InteractionsSerializer(serializers.BaseSerializer):
 
         return UsersInteractions.objects.create(location=location, **validated_data)
 
+    def update(self, instance, validated_data):
+        pass
+
 
 class UserRelatedField(serializers.RelatedField):
-
     queryset = User.objects.all()
-
-    # def get_queryset(self):
-    #     return User.objects.all()
-    #
-    # def get_attribute(self, instance):
-    #     import pdb;pdb.set_trace()
-    #
-    # def get_validators(self):
-    #     import pdb;pdb.set_trace()
 
     def to_internal_value(self, data):
         return data
@@ -211,7 +210,6 @@ class TMPPlaceSerializer(serializers.ModelSerializer):
 
 class PlaceSerializer(serializers.BaseSerializer):
 
-
     def to_internal_value(self, data):
         lat = data.get('lat')
         lng = data.get('lng')
@@ -219,6 +217,19 @@ class PlaceSerializer(serializers.BaseSerializer):
         description = data.get('description')
         image = data.get('image', '')
         updated_at = dt.utcnow()
+
+        if hasattr(self, 'partial') and self.partial:
+
+            if type_:
+                del data['type']
+                data.update({'type_': type_})
+
+            if lat or lng:
+                location = {'lat': data.get('lat', self.instance.location.lat),
+                            'lng': data.get('lng', self.instance.location.lng)}
+                data.update({'location': location})
+
+            return data
 
         if not lat:
             raise ValidationError({
@@ -268,3 +279,17 @@ class PlaceSerializer(serializers.BaseSerializer):
         location, _ = Location.objects.get_or_create(**validated_data.pop('location'))
 
         return LocationsOfInterest.objects.create(location=location, **validated_data)
+
+    def update(self, instance, validated_data):
+
+        for key, value in validated_data.items():
+            if hasattr(instance, key):
+                if key == 'location':
+                    value, _ = Location.objects.get_or_create(**validated_data.pop('location'))
+
+                setattr(instance, key, value)
+
+        instance.updated_at = dt.utcnow()
+        instance.save()
+
+        return instance

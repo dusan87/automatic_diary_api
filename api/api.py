@@ -133,7 +133,7 @@ class FollowView(APIView):
         """
         following = self.get_queryset(pk)
 
-        #add relationship
+        # add relationship
         user = request.user
         user.add_follower(following)
 
@@ -214,7 +214,8 @@ class LocationView(APIView):
             return Response({
                 'user_location': UsersLocationsSerializer(location).data,
                 'followings_locations': UsersLocationsSerializer(users_location, many=True).data
-                }, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_201_CREATED)
+
 
 class InteractionView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
@@ -224,7 +225,7 @@ class InteractionView(APIView):
 
         assert request.data
 
-        serializer = InteractionsSerializer(data=request.data, context={'user':request.user})
+        serializer = InteractionsSerializer(data=request.data, context={'user': request.user})
 
         if serializer.is_valid():
             users_interaction = serializer.save()
@@ -238,7 +239,6 @@ class InteractionView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class PlacesView(generics.ListCreateAPIView):
     """
     By convinient we call locations of interest as 'Places'
@@ -249,7 +249,7 @@ class PlacesView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = PlaceSerializer
 
-    def get_queryset(self,):
+    def get_queryset(self, ):
         """
         List user places
         List user followings
@@ -272,7 +272,6 @@ class PlacesView(generics.ListCreateAPIView):
         })
 
     def create(self, request, *args, **kwargs):
-
         data = request.data
 
         serializer = PlaceSerializer(data=data, context={'user': request.user})
@@ -284,11 +283,7 @@ class PlacesView(generics.ListCreateAPIView):
 
 
 class PlaceView(generics.RetrieveUpdateDestroyAPIView):
-
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated, IsOwnerOrReadOnly)
     serializer_class = PlaceSerializer
     queryset = LocationsOfInterest.objects.all()
-
-    def put(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)

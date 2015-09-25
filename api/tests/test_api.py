@@ -541,6 +541,8 @@ class TestUsersInteractions():
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 201
+        assert isinstance(response.data, dict)
+
         data = response.data
         assert data['interaction']
         assert data['interaction']['user']
@@ -550,7 +552,7 @@ class TestUsersInteractions():
 
         interactions_no_after = len(UsersInteractions.objects.filter(user=user, partner=following))
 
-        #number of interactions should be increase for one
+        # number of interactions should be increase for one
         assert interactions_no_before + 1 == interactions_no_after
 
     @postgres_db
@@ -651,7 +653,7 @@ class TestLocationsOfInterest():
     # def test_create_place(self, client, user_base_creds, user, place_image):
     #
     # request_data = {
-    #         'lat': -43.341431,
+    # 'lat': -43.341431,
     #         'lng': 20.231123,
     #         'type':'enjoying',
     #         'description':'There is amazing view on Pariz.',
@@ -748,8 +750,8 @@ class TestLocationsOfInterest():
             'description': 'This is a good club at the heart of Sidney.',
         }
 
-        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
-                              content_type='application/json')
+        response = client.patch(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
+                                content_type='application/json')
 
         assert response.status_code == 200
         assert response.data
@@ -766,6 +768,33 @@ class TestLocationsOfInterest():
         assert data['location']['lng']
 
     @postgres_db
+    def test_edit_location_of_place(self, client, user_base_creds, user, place):
+
+        url = '/place/%i/' % place.id
+
+        request_data = {
+            'type': 'clubbing',
+            'lat': -94.23131
+        }
+
+        response = client.patch(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
+                                content_type='application/json')
+
+        assert response.status_code == 200
+        assert response.data
+
+        data = response.data
+
+        assert data['id']
+        assert data['type'] == request_data['type']
+        assert data['image']
+        assert data['description']
+        assert data['created_at']
+        assert data['updated_at']
+        assert data['location']['lat'] == request_data['lat']
+        assert data['location']['lng']
+
+    @postgres_db
     def test_trying_to_edit_place_that_user_is_not_owner(self, client, user_base_creds, user, random_place):
 
         url = '/place/{}/'.format(random_place.id)
@@ -774,8 +803,8 @@ class TestLocationsOfInterest():
             'description': 'This is a good swimming club at the heart of Sidney.'
         }
 
-        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
-                              content_type='application/json')
+        response = client.patch(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
+                                content_type='application/json')
 
         assert response.status_code == 403
         assert response.data
