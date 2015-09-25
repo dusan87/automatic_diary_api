@@ -163,7 +163,6 @@ class LocationView(APIView):
             dist = (dt.utcnow() - created_at.replace(tzinfo=None))
             return 0 < dist.total_seconds() <= time_limit
 
-
     def get_queryset(self, ):
         """
             get user's following friends current locations

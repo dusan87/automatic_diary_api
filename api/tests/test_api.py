@@ -9,7 +9,8 @@ postgres_db = pytest.mark.django_db
 
 
 class TestUserCreation():
-    def test_create_user_requred_fields_failure(self, rf, create_user_view, user_required_fields):
+    @postgres_db
+    def test_create_user_required_fields_failure(self, rf, create_user_view, user_required_fields):
 
         request = rf.post('/create_user/')
         response = create_user_view(request)
@@ -133,7 +134,6 @@ class TestUserAuth():
         assert response.status_code == 403
         assert data
         assert data['message'] == "Password cannot be blank value!"
-
 
     @postgres_db
     def test_user_validate_successfully(self, client, user):
@@ -280,12 +280,12 @@ class TestLocationView():
 
         assert response_data['user_location']['location']['id'] == data['user_location']['location']['id']
 
-
     @postgres_db
     def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds,
                                                                                        user, followings_locations):
         """
-            Store user location and get followings(friends) current locations that are at least updated in last 15mins from request time.
+            Store user location and get followings(friends) current locations that are at least updated in last 15mins
+            from request time.
         """
 
         param_data = {
@@ -313,7 +313,6 @@ class TestLocationView():
 
             date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
             assert 0 < (now - date).total_seconds() <= time_limit  # lte 15mins all following locations
-
 
     @postgres_db
     def test_user_followings_locations_updated_at_least_in_last_15mins(self, client, user_base_creds, user,
@@ -363,6 +362,8 @@ class TestLocationView():
             assert loc['user']
             assert loc['user']['email']
             assert loc['user']['email'] != 'anonymous0@gmail.com'
+            assert loc['created_at']
+            assert not (now - dt.strptime(loc['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() > time_limit
 
             # @postgres_db
             # def test_retrieving_user_locations_order_by_created_at_descending(self, client, user_base_creds, user, user_locations):
@@ -393,10 +394,10 @@ class TestUsersInteractions():
     """
         Interaction can be achieved with three types of interactions:
         - (CALL, SMS, Physical)
-        - Required fileds are (type, location, interactor_email?,phone?)
+        - Required fields are (type, location, interactor_email?,phone?)
         - Interactor email is required when type is Physical
         - Phone is required in case that type is either CALL or SMS
-        - If we dont match ordered phone number we just avoid creation
+        - If we don't match ordered phone number we just avoid creation
     """
 
     @postgres_db
