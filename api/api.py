@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 # builtins
-import json
 from datetime import datetime as dt
 
 # django
@@ -17,20 +16,14 @@ from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
 
 # project
-from api import consts
 from .serializers import (UserSerializer,
                           UsersLocationsSerializer,
-                          UsersInteractionsSerializer,
                           InteractionsSerializer,
-                          PlaceSerializer,
-                          LocationSerializer)
+                          PlaceSerializer)
 from .models import (User,
-                     Location,
                      UsersLocations,
-                     UsersInteractions,
                      LocationsOfInterest)
 from .permissions import (IsOwnerOrReadOnly, )
 
@@ -45,7 +38,7 @@ class AuthView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.AllowAny,)
 
-    def post(self, request, format=None):
+    def post(self, request):
         if request.user is not None and request.user.is_active:
             login(request, request.user)
             return Response(UserSerializer(request.user).data, status=201)
@@ -53,7 +46,7 @@ class AuthView(APIView):
         return Response(
             {"message": 'User is not authorized! Please, check email and password!'}, status=401)
 
-    def delete(self, request, format=None):
+    def delete(self, request):
         logout(request)
         return Response({
             'message': 'User has been successfully logged out.'
@@ -63,7 +56,7 @@ class AuthView(APIView):
 class UserValidationView(APIView):
     permission_classes = (permissions.AllowAny,)
 
-    def get(self, request, format=None):
+    def get(self, request):
         email = request.query_params.get('email')
         pass1 = request.query_params.get('password1')
         pass2 = request.query_params.get('password2')
@@ -118,20 +111,16 @@ class FollowView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self, pk):
-        try:
-            following = User.objects.get(pk=pk)
-        except User.DoesNotExist:
-            raise Http404
-
-        return following
-
-    def put(self, request, pk, format=None):
+    def put(self, request, pk):
         """
             @pk: primary key of follower that has been followed
                  by authenticated user
         """
-        following = self.get_queryset(pk)
+
+        try:
+            following = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise Http404
 
         # add relationship
         user = request.user
@@ -183,7 +172,7 @@ class LocationView(APIView):
 
         return locations
 
-    def get(self, request, format=None):
+    def get(self, request):
         """
         List user's followings locations
         """
@@ -196,7 +185,7 @@ class LocationView(APIView):
             'followings_locations': UsersLocationsSerializer(followings_locations, many=True).data
         })
 
-    def post(self, request, format=None):
+    def post(self, request):
         """
             - store user current user location,
             - give back all user's following friends current locations
@@ -220,7 +209,7 @@ class InteractionView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request, format=None):
+    def post(self, request):
 
         assert request.data
 
@@ -232,7 +221,7 @@ class InteractionView(APIView):
                 'interaction': InteractionsSerializer(users_interaction).data
             }, status=status.HTTP_201_CREATED)
 
-        elif serializer.errors.has_key('partner'):
+        elif 'partner' in serializer.errors:
             return Response(serializer.errors, status=status.HTTP_404_NOT_FOUND)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -258,7 +247,7 @@ class PlacesView(generics.ListCreateAPIView):
         user_places = user.places.all()
         following_users = user.follows.all()
         following_places = LocationsOfInterest.objects.filter(user__in=following_users)
-        return (user_places, following_places)
+        return user_places, following_places
 
     def list(self, request, **kwargs):
         user_places, following_places = self.get_queryset()
