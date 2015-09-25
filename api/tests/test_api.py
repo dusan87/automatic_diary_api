@@ -770,7 +770,6 @@ class TestLocationsOfInterest():
 
         response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds, content_type='application/json')
 
-        import pdb;pdb.set_trace()
         assert response.status_code == 200
         assert response.data
 

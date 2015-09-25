@@ -83,7 +83,7 @@ def user_with_image(user_data, image_path):
     user_data[consts.EMAIL] = 'dusanristic@elfak.rs'
     user_data[consts.PHONE_NUMBER] = '+381640000000'
     user = User.objects.create_user(birth_day=dt.now(), **user_data)
-    user.image = File(open(image_path))
+    user.image = image_path
     user.save()
     assert user.pk
 
@@ -100,7 +100,7 @@ def users(user_data, image_path, user, user_with_image):
         usr = User.objects.create_user(birth_day=dt.now(), **user_data)
 
         if i % 2 == 0:  # each second user has image
-            usr.image = File(open(image_path))
+            usr.image = image_path
             usr.save()
             assert usr.pk
 
@@ -183,17 +183,20 @@ def following(users):
 
 # Places = Locations of Interests
 
-def create_place(location, user, image):
+def create_place(location, user, image, description=None, type_of=None):
     types = ('chilling', 'clubing', 'library', 'meeting')
     descriptions = ('Amazing!', "Let's get it!", "Something amazing!")
 
-    place = LocationsOfInterest.objects.create(description=random.choice(descriptions),
-                                               type_=random.choice(types),
+    desc= description if description else random.choice(descriptions)
+    type_ = type_of if type_of else random.choice(types)
+
+    place = LocationsOfInterest.objects.create(description=desc,
+                                               type_=type_,
                                                updated_at=dt.utcnow(),
-                                               image=image,
                                                user=user,
                                                location=location)
-
+    place.image = image
+    place.save()
 
     return place
 
@@ -208,42 +211,20 @@ def place(user, locations, image_path):
     location = locations[0]
     description = 'There is amazing iceream.'
     type_of = 'chilling'
-    last_update = dt.utcnow()
-    image = File(open(image_path))
 
-    place = LocationsOfInterest.objects.create(description=description,
-                                               type_=type_of,
-                                               updated_at=last_update,
-                                               image=image,
-                                               user=user,
-                                               location=location)
+    place = create_place(location, user, image_path, description, type_of)
 
     return place
 
 @pytest.fixture
 def user_places(user, locations, image_path):
-
-    types = ('chilling', 'clubing', 'library', 'meeting')
-    descriptions = ('Amazing!', "Let's get it!", "Something amazing!")
-    image = File(open(image_path))
-
-    def _place(location):
-
-        place = LocationsOfInterest.objects.create(description=random.choice(descriptions),
-                                               type_=random.choice(types),
-                                               updated_at=dt.utcnow(),
-                                               image=image,
-                                               user=user,
-                                               location=location)
-        return place
-
-    places = [_place(location) for location in locations]
+    places = [create_place(location, user, image_path) for location in locations]
 
     return places
 
 @pytest.fixture
 def users_places(locations, users, image_path):
-    places = [create_place(location, user, File(open(image_path))) for user in users for location in locations]
+    places = [create_place(location, user, image_path) for user in users for location in locations]
 
     return places
 
