@@ -9,8 +9,6 @@ postgres_db = pytest.mark.django_db
 
 
 class TestUserCreation():
-
-
     def test_create_user_requred_fields_failure(self, rf, create_user_view, user_required_fields):
 
         request = rf.post('/create_user/')
@@ -44,13 +42,12 @@ class TestUserCreation():
 
         assert data
 
-        for key, value in  data.items():
+        for key, value in data.items():
             if key in consts.USER_REQUIRED_FIELDS:
                 assert value
 
 
 class TestUserAuth():
-
     @postgres_db
     def test_not_matched_user_credentials(self, client, user_base_creds_invalid, user):
         """
@@ -67,10 +64,9 @@ class TestUserAuth():
 
     @postgres_db
     def test_user_login_auth(self, client, user_base_creds, user):
-
         response = client.post('/auth_user/', HTTP_AUTHORIZATION=user_base_creds)
 
-        data =  response.data
+        data = response.data
 
         assert response.status_code == 201
         assert data
@@ -92,12 +88,11 @@ class TestUserAuth():
 
     @postgres_db
     def test_user_already_exist(self, client, user):
-
         params = {
-                consts.EMAIL: 'anonymous@gmail.com',
-                'password1':'pass',
-                'password2':'pass'
-            }
+            consts.EMAIL: 'anonymous@gmail.com',
+            'password1': 'pass',
+            'password2': 'pass'
+        }
 
         response = client.get('/validate/', params)
 
@@ -109,12 +104,11 @@ class TestUserAuth():
 
     @postgres_db
     def test_passwords_not_match(self, client, user):
-
         params = {
-                consts.EMAIL: 'anonymous1@gmail.com',
-                'password1':'pass1',
-                'password2':'pass2'
-            }
+            consts.EMAIL: 'anonymous1@gmail.com',
+            'password1': 'pass1',
+            'password2': 'pass2'
+        }
 
         response = client.get('/validate/', params)
 
@@ -126,12 +120,11 @@ class TestUserAuth():
 
     @postgres_db
     def test_passwords_cannot_be_blank(self, client, user):
-
         params = {
-                consts.EMAIL: 'anonymous1@gmail.com',
-                'password1':'',
-                'password2':'pass2'
-            }
+            consts.EMAIL: 'anonymous1@gmail.com',
+            'password1': '',
+            'password2': 'pass2'
+        }
 
         response = client.get('/validate/', params)
 
@@ -144,12 +137,11 @@ class TestUserAuth():
 
     @postgres_db
     def test_user_validate_successfully(self, client, user):
-
         params = {
-                consts.EMAIL: 'anonymous1@gmail.com',
-                'password1':'pass',
-                'password2':'pass'
-            }
+            consts.EMAIL: 'anonymous1@gmail.com',
+            'password1': 'pass',
+            'password2': 'pass'
+        }
 
         response = client.get('/validate/', params)
 
@@ -161,12 +153,11 @@ class TestUserAuth():
 
     @postgres_db
     def test_two_blank_passwords(self, client, user):
-
         params = {
-                consts.EMAIL: 'anonymous1@gmail.com',
-                'password1':'',
-                'password2':''
-            }
+            consts.EMAIL: 'anonymous1@gmail.com',
+            'password1': '',
+            'password2': ''
+        }
 
         response = client.get('/validate/', params)
 
@@ -178,13 +169,12 @@ class TestUserAuth():
 
 
 class TestSuggestedUsers():
-
     @postgres_db
-    def test_not_allowed_method(self, client, user_base_creds,user):
+    def test_not_allowed_method(self, client, user_base_creds, user):
         """
             Not allowed methods (POST, DELETE, PUT, PATCH)
         """
-        response =  client.post('/users/', HTTP_AUTHORIZATION=user_base_creds)
+        response = client.post('/users/', HTTP_AUTHORIZATION=user_base_creds)
         data = response.data
 
         assert response.status_code == 405
@@ -192,8 +182,9 @@ class TestSuggestedUsers():
         assert data['detail'] == 'Method "POST" not allowed.'
 
     @postgres_db
-    def test_list_users_except_current_user_and_users_without_image_and_already_followed(self, client, user_base_creds, user, users):
-        response =  client.get('/users/', HTTP_AUTHORIZATION=user_base_creds)
+    def test_list_users_except_current_user_and_users_without_image_and_already_followed(self, client, user_base_creds,
+                                                                                         user, users):
+        response = client.get('/users/', HTTP_AUTHORIZATION=user_base_creds)
         assert response.status_code == 200
         assert response.data
 
@@ -209,7 +200,7 @@ class TestSuggestedUsers():
     def test_follow_user(self, client, user_base_creds, user, following_user):
         url = '/follow/%i/' % following_user.pk
 
-        response =  client.put(url, HTTP_AUTHORIZATION=user_base_creds)
+        response = client.put(url, HTTP_AUTHORIZATION=user_base_creds)
 
         data = response.data
 
@@ -226,7 +217,7 @@ class TestSuggestedUsers():
     @postgres_db
     def test_follow_user_not_found_pk(self, client, user_base_creds, user, following_user):
         url = '/follow/%i/' % (following_user.pk + 123)
-        response =  client.put(url, HTTP_AUTHORIZATION=user_base_creds)
+        response = client.put(url, HTTP_AUTHORIZATION=user_base_creds)
 
         data = response.data
         print data
@@ -237,7 +228,6 @@ class TestSuggestedUsers():
 
 
 class TestLocationView():
-
     @postgres_db
     def test_store_location_and_return_followings_location(self, client, user_base_creds, user):
         """
@@ -248,11 +238,11 @@ class TestLocationView():
         """
 
         param_data = {
-                'lat': 43.321321129,
-                'lng': 12.1982322
-            }
+            'lat': 43.321321129,
+            'lng': 12.1982322
+        }
 
-        response = client.post('/location/', data=param_data,HTTP_AUTHORIZATION=user_base_creds)
+        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
 
         data = response.data
 
@@ -264,16 +254,16 @@ class TestLocationView():
 
         location = data['user_location']['location']
 
-        assert location['lat'] == param_data['lat'] and location['lng'] ==param_data['lng']
+        assert location['lat'] == param_data['lat'] and location['lng'] == param_data['lng']
         assert user.email == data['user_location']['user']['email']
 
     @postgres_db
     def test_storing_location_that_already_exist(self, client, user_base_creds, user):
 
         param_data = {
-                'lat': 43.321321129,
-                'lng': 12.1982322
-            }
+            'lat': 43.321321129,
+            'lng': 12.1982322
+        }
 
         response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -281,30 +271,28 @@ class TestLocationView():
 
         response_data = response.data
 
-
         response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 201
 
         data = response.data
 
-
         assert response_data['user_location']['location']['id'] == data['user_location']['location']['id']
 
 
     @postgres_db
-    def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds, user, followings_locations):
+    def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds,
+                                                                                       user, followings_locations):
         """
             Store user location and get followings(friends) current locations that are at least updated in last 15mins from request time.
         """
 
         param_data = {
-                'lat': 43.321321129,
-                'lng': 12.1982322
-            }
+            'lat': 43.321321129,
+            'lng': 12.1982322
+        }
 
-        response = client.post('/location/', data=param_data,HTTP_AUTHORIZATION=user_base_creds)
-
+        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 201
 
@@ -313,7 +301,7 @@ class TestLocationView():
         assert data['followings_locations']
 
         locations = data['followings_locations']
-        time_limit = 15 * 60 # 15mins to secs
+        time_limit = 15 * 60  # 15mins to secs
         now = dt.utcnow()
 
         for loc in locations:
@@ -323,14 +311,14 @@ class TestLocationView():
             assert loc['created_at']
 
             date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
-            assert 0 < (now - date).total_seconds() <= time_limit # lte 15mins all following locations
+            assert 0 < (now - date).total_seconds() <= time_limit  # lte 15mins all following locations
 
 
     @postgres_db
-    def test_user_followings_locations_updated_at_least_in_last_15mins(self, client, user_base_creds, user, followings_locations):
+    def test_user_followings_locations_updated_at_least_in_last_15mins(self, client, user_base_creds, user,
+                                                                       followings_locations):
 
         response = client.get('/location/', HTTP_AUTHORIZATION=user_base_creds)
-
 
         assert response.status_code == 200
 
@@ -339,7 +327,7 @@ class TestLocationView():
         assert data['followings_locations']
 
         locations = data['followings_locations']
-        time_limit = 15 * 60 # 15mins to secs
+        time_limit = 15 * 60  # 15mins to secs
         now = dt.utcnow()
 
         for loc in locations:
@@ -349,10 +337,11 @@ class TestLocationView():
             assert loc['created_at']
 
             date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
-            assert 0 < (now - date).total_seconds() <= time_limit # lte 15mins all following locations
+            assert 0 < (now - date).total_seconds() <= time_limit  # lte 15mins all following locations
 
     @postgres_db
-    def test_excluding_not_active_user_followings_locations(self, client, user_base_creds,user, followings_locations, not_active_following_location):
+    def test_excluding_not_active_user_followings_locations(self, client, user_base_creds, user, followings_locations,
+                                                            not_active_following_location):
         """
             Check if in the following locations list there is no following that has not updated location in last 15mins
             So, we consider that kind of users location as not valid and do not list it.
@@ -366,7 +355,7 @@ class TestLocationView():
         assert data['followings_locations']
 
         locations = data['followings_locations']
-        time_limit = 15 * 60 # 15mins to secs
+        time_limit = 15 * 60  # 15mins to secs
         now = dt.utcnow()
 
         for loc in locations:
@@ -374,23 +363,23 @@ class TestLocationView():
             assert loc['user']['email']
             assert loc['user']['email'] != 'anonymous0@gmail.com'
 
-    # @postgres_db
-    # def test_retrieving_user_locations_order_by_created_at_descending(self, client, user_base_creds, user, user_locations):
+            # @postgres_db
+            # def test_retrieving_user_locations_order_by_created_at_descending(self, client, user_base_creds, user, user_locations):
 
-        # response = client.get('/location/', HTTP_AUTHORIZATION=user_base_creds)
+            # response = client.get('/location/', HTTP_AUTHORIZATION=user_base_creds)
 
-        # assert response.status_code == 200
+            # assert response.status_code == 200
 
-        # data = response.data
+            # data = response.data
 
-        # assert data
-        # assert data['locations']
-        # assert len(data['locations']) == 3
+            # assert data
+            # assert data['locations']
+            # assert len(data['locations']) == 3
 
-        # locations = data['locations']
+            # locations = data['locations']
 
-        # i = 0
-        # while i < len(locations) - 1:
+            # i = 0
+            # while i < len(locations) - 1:
             # gt_date = dt.strptime(locations[i]['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
             # lt_date = dt.strptime(locations[i + 1]['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
 
@@ -411,14 +400,13 @@ class TestUsersInteractions():
 
     @postgres_db
     def test_storing_users_interaction_call_fail_without_number_param(self, client, user_base_creds, user):
-
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.CALL],
-                'phone': '',
-                'lat': 43.31231,
-                'lng': -34.00122,
-            }
+            'type': interactions[consts.CALL],
+            'phone': '',
+            'lat': 43.31231,
+            'lng': -34.00122,
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -430,14 +418,13 @@ class TestUsersInteractions():
 
     @postgres_db
     def test_storing_users_interaction_sms_fail_without_number_param(self, client, user_base_creds, user):
-
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.SMS],
-                'phone':'',
-                'lat': 43.31231,
-                'lng': -34.00122
-            }
+            'type': interactions[consts.SMS],
+            'phone': '',
+            'lat': 43.31231,
+            'lng': -34.00122
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -447,17 +434,17 @@ class TestUsersInteractions():
         assert 'phone' in data.keys()
         assert data['phone'] == 'This field is required in case type is either call or sms.'
 
-    #TODO: Set this test case into proper format, it doesnt work as I expect
-    # @postgres_db
-    # def test_storing_sms_users_interaction_wrong_number_format(self, client, user_base_creds, user):
+        # TODO: Set this test case into proper format, it doesnt work as I expect
+        # @postgres_db
+        # def test_storing_sms_users_interaction_wrong_number_format(self, client, user_base_creds, user):
 
         # interactions = dict(consts.INTERACTIONS)
         # data = {
-                # 'type': interactions[consts.SMS],
-                # 'phone':'38164159195a',
-                # 'lat': 43.31231,
-                # 'lng': -34.00122
-            # }
+        # 'type': interactions[consts.SMS],
+        # 'phone':'38164159195a',
+        # 'lat': 43.31231,
+        # 'lng': -34.00122
+        # }
 
         # response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -472,14 +459,13 @@ class TestUsersInteractions():
 
     @postgres_db
     def test_storing_users_interactions_fail_with_invalid_following_email_format(self, client, user_base_creds, user):
-
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.PHYSICAL],
-                'partner_email':'anonymous',
-                'lat': 43.31231,
-                'lng': -34.00122
-            }
+            'type': interactions[consts.PHYSICAL],
+            'partner_email': 'anonymous',
+            'lat': 43.31231,
+            'lng': -34.00122
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -491,32 +477,31 @@ class TestUsersInteractions():
         assert data['partner_email'] == 'This field has invalid email format.'
 
     @postgres_db
-    def test_without_email_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds,user):
+    def test_without_email_and_phone_params_user_interaction_fails_on_phone_param(self, client, user_base_creds, user):
         """
         Request params data without partner_email and phone number.
         It should complaint for phone param since the type of interaction is call/sms.
         """
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.CALL],
-                'lat': 43.31231,
-                'lng': -34.00122
-            }
+            'type': interactions[consts.CALL],
+            'lat': 43.31231,
+            'lng': -34.00122
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 400
         assert response.data
-        assert response.data['phone'] ==  'This field is required in case type is either call or sms.'
+        assert response.data['phone'] == 'This field is required in case type is either call or sms.'
 
     @postgres_db
     def test_without_location_param_user_interaction_fails(self, client, user_base_creds, user, following_user):
-
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.PHYSICAL],
-                'partner_email': following_user.email,
-            }
+            'type': interactions[consts.PHYSICAL],
+            'partner_email': following_user.email,
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -526,13 +511,12 @@ class TestUsersInteractions():
 
     @postgres_db
     def test_type_of_interaction_doesnt_match_available_chooses(self, client, user_base_creds, user, following_user):
-
         data = {
-                'type': "Wrong",
-                'partner_email': following_user.email,
-                'lat': -43.023131,
-                'lng': 43.1321321
-            }
+            'type': "Wrong",
+            'partner_email': following_user.email,
+            'lat': -43.023131,
+            'lng': 43.1321321
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -542,18 +526,17 @@ class TestUsersInteractions():
 
     @postgres_db
     def test_storing_users_interaction_physical(self, client, user_base_creds, user, following_email, following):
-
-        #number of interactions between users before request
+        # number of interactions between users before request
         interactions_no_before = len(UsersInteractions.objects.filter(user=user, partner=following))
 
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'partner_email': following_email,
-                'type': interactions[consts.PHYSICAL],
-                'lat': 43.31231,
-                'lng': -34.00122,
-                'phone':''
-            }
+            'partner_email': following_email,
+            'type': interactions[consts.PHYSICAL],
+            'lat': 43.31231,
+            'lng': -34.00122,
+            'phone': ''
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -565,21 +548,20 @@ class TestUsersInteractions():
         assert data['interaction']['location']
         assert data['interaction']['type'] == interactions[consts.PHYSICAL]
 
-        interactions_no_after =  len(UsersInteractions.objects.filter(user=user, partner=following))
+        interactions_no_after = len(UsersInteractions.objects.filter(user=user, partner=following))
 
         #number of interactions should be increase for one
         assert interactions_no_before + 1 == interactions_no_after
 
     @postgres_db
     def test_storing_call_users_interaction(self, client, user_base_creds, user, following_user):
-
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.CALL],
-                'phone': following_user.phone,
-                'lat': 43.31231,
-                'lng': -34.00122
-            }
+            'type': interactions[consts.CALL],
+            'phone': following_user.phone,
+            'lat': 43.31231,
+            'lng': -34.00122
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -595,7 +577,7 @@ class TestUsersInteractions():
         assert data['interaction']['location']
         assert data['interaction']['type'] and data['interaction']['type'] == consts.CALL
         assert user.is_following(**{
-            'id':data['interaction']['partner']['id']
+            'id': data['interaction']['partner']['id']
         })
 
     @postgres_db
@@ -606,11 +588,11 @@ class TestUsersInteractions():
         """
         interactions = dict(consts.INTERACTIONS)
         data = {
-                'type': interactions[consts.CALL],
-                'phone': user_with_image.phone,
-                'lat': 43.31231,
-                'lng': -34.00122
-            }
+            'type': interactions[consts.CALL],
+            'phone': user_with_image.phone,
+            'lat': 43.31231,
+            'lng': -34.00122
+        }
 
         response = client.post('/interact/', data=data, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -623,10 +605,9 @@ class TestUsersInteractions():
 
 
 class TestLocationsOfInterest():
-
     # creation
     @postgres_db
-    def test_create_location_fails_required_params(self, client, user_base_creds, user, place_image, users,):
+    def test_create_location_fails_required_params(self, client, user_base_creds, user, place_image, users, ):
         request_data = {
             'lat': -43.341431,
             'lng': 20.231123,
@@ -641,14 +622,14 @@ class TestLocationsOfInterest():
 
         assert response.data['type'] == 'This field is required.'
 
-    # @postgres_db
-    # def test_create_location_with_default_image_if_there_is_no_uploaded_image_sent(self, client, user_base_creds, user, place_image):
+        # @postgres_db
+        # def test_create_location_with_default_image_if_there_is_no_uploaded_image_sent(self, client, user_base_creds, user, place_image):
         # request_data = {
-            # 'lat': -43.341431,
-            # 'lng': 20.231123,
-            # 'type':'clambing',
-            # 'description':'There is amazing view on Pariz.',
-            # 'image':place_image
+        # 'lat': -43.341431,
+        # 'lng': 20.231123,
+        # 'type':'clambing',
+        # 'description':'There is amazing view on Pariz.',
+        # 'image':place_image
         # }
 
         # response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
@@ -669,7 +650,7 @@ class TestLocationsOfInterest():
     # @postgres_db
     # def test_create_place(self, client, user_base_creds, user, place_image):
     #
-    #     request_data = {
+    # request_data = {
     #         'lat': -43.341431,
     #         'lng': 20.231123,
     #         'type':'enjoying',
@@ -763,12 +744,12 @@ class TestLocationsOfInterest():
 
         url = '/place/%i/' % place.id
         request_data = {
-            'type':'clubing',
-            'description':'This is a good club at the heart of Sidney.',
+            'type': 'clubbing',
+            'description': 'This is a good club at the heart of Sidney.',
         }
 
-
-        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds, content_type='application/json')
+        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
+                              content_type='application/json')
 
         assert response.status_code == 200
         assert response.data
@@ -789,11 +770,12 @@ class TestLocationsOfInterest():
 
         url = '/place/{}/'.format(random_place.id)
         request_data = {
-                'type':'swimming',
-                'description':'This is a good swimming club at the heart of Sidney.'
-            }
+            'type_': 'swimming',
+            'description': 'This is a good swimming club at the heart of Sidney.'
+        }
 
-        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds, content_type='application/json')
+        response = client.put(url, data=json.dumps(request_data), HTTP_AUTHORIZATION=user_base_creds,
+                              content_type='application/json')
 
         assert response.status_code == 403
         assert response.data
@@ -807,7 +789,7 @@ class TestLocationsOfInterest():
 
         assert LocationsOfInterest.objects.count() == 1
 
-        response  = client.delete(url, HTTP_AUTHORIZATION=user_base_creds)
+        response = client.delete(url, HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 204
 
