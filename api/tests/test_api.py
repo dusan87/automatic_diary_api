@@ -49,7 +49,7 @@ class TestUserCreation():
 
 class TestUserAuth():
     @postgres_db
-    def test_not_matched_user_credentials(self, client, user_base_creds_invalid, user):
+    def test_not_matched_user_credentials(self, client, user_base_creds_invalid):
         """
             User has input either invalid email or password.
         """
@@ -215,7 +215,7 @@ class TestSuggestedUsers():
         assert following_user.email in user.get_following_users()
 
     @postgres_db
-    def test_follow_user_not_found_pk(self, client, user_base_creds, user, following_user):
+    def test_follow_user_not_found_pk(self, client, user_base_creds, following_user):
         url = '/follow/%i/' % (following_user.pk + 123)
         response = client.put(url, HTTP_AUTHORIZATION=user_base_creds)
 
@@ -234,7 +234,8 @@ class TestLocationView():
             This api call does following:
             - Service gets user location pair lat, lng and send to api
             - Storing pair (lat, lng)
-            @return: user's followings most updated location and not older than 15mins. If so we not consider user as he/she has current location and we do not return their value.
+            @return: user's followings most updated location and not older than 15mins.
+            If so we not consider user as he/she has current location and we do not return their value.
         """
 
         param_data = {
@@ -510,7 +511,7 @@ class TestUsersInteractions():
         assert response.data['lat'] == 'This field is required.'
 
     @postgres_db
-    def test_type_of_interaction_doesnt_match_available_chooses(self, client, user_base_creds, user, following_user):
+    def test_type_of_interaction_doesnt_match_available_chooses(self, client, user_base_creds, following_user):
         data = {
             'type': "Wrong",
             'partner_email': following_user.email,
@@ -585,7 +586,7 @@ class TestUsersInteractions():
     @postgres_db
     def test_skip_storing_call_users_interaction(self, client, user_base_creds, user, user_with_image):
         """
-        There is a user with passed number, but the user passed number is not followed by the user/persone who has been called.
+        There is a user with passed number, but the user passed number is not followed by the user/person who has been called.
         We just keep tracking interaction between following users.
         """
         interactions = dict(consts.INTERACTIONS)
@@ -624,30 +625,31 @@ class TestLocationsOfInterest():
 
         assert response.data['type'] == 'This field is required.'
 
-        # @postgres_db
-        # def test_create_location_with_default_image_if_there_is_no_uploaded_image_sent(self, client, user_base_creds, user, place_image):
-        # request_data = {
-        # 'lat': -43.341431,
-        # 'lng': 20.231123,
-        # 'type':'clambing',
-        # 'description':'There is amazing view on Pariz.',
-        # 'image':place_image
-        # }
+        @postgres_db
+        def test_create_location_with_default_image_if_there_is_no_uploaded_image_sent(self, client, user_base_creds,
+                                                                                       user, place_image):
+            request_data = {
+                'lat': -43.341431,
+                'lng': 20.231123,
+                'type': 'climbing',
+                'description': 'There is amazing view on Pariz.',
+                'image': place_image
+            }
 
-        # response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
+            response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
 
-        # assert response.status_code == 201
-        # assert response.data
+            assert response.status_code == 201
+            assert response.data
 
-        # data = response.data
-        # assert data['id']
-        # assert data['type'] == request_data['type']
-        # assert data['image']
-        # assert data['description']
-        # assert data['created_at']
-        # assert data['updated_at']
-        # assert data['location']['lat']
-        # assert data['location']['lng']
+            data = response.data
+            assert data['id']
+            assert data['type'] == request_data['type']
+            assert data['image']
+            assert data['description']
+            assert data['created_at']
+            assert data['updated_at']
+            assert data['location']['lat']
+            assert data['location']['lng']
 
     @postgres_db
     def test_create_place(self, client, user_base_creds, user, place_image):
@@ -655,8 +657,8 @@ class TestLocationsOfInterest():
         request_data = {
             'lat': -43.341431,
             'lng': 20.231123,
-            'type':'enjoying',
-            'description':'There is amazing view on Pariz.',
+            'type': 'enjoying',
+            'description': 'There is amazing view on Pariz.',
             'image': place_image
         }
 
@@ -697,19 +699,19 @@ class TestLocationsOfInterest():
         assert data['location']['lng']
 
     @postgres_db
-    def test_get_places(self, client, user_base_creds, user, user_places, users_places, locations):
+    def test_get_places(self, client, user_base_creds, user, user_places, locations):
         """
-        Get all user posted places and his followins' places
+            Get all user posted places and his followings places
+        :type locations: list
         """
         response = client.get('/places/', HTTP_AUTHORIZATION=user_base_creds)
 
         assert response.status_code == 200
         assert response.data
 
-        data = response.data
         assert response.data['places']
-        assert response.data['places'].has_key('user_places')
-        assert response.data['places'].has_key('following_places')
+        assert 'user_places' in response.data['places']
+        assert 'following_places' in response.data['places']
 
         user_places = response.data['places']['user_places']
         followings_places = response.data['places']['following_places']
@@ -742,9 +744,10 @@ class TestLocationsOfInterest():
 
     # Upgrade
     @postgres_db
-    def test_edit_type_of_location(self, client, user_base_creds, user, place):
+    def test_edit_type_of_location(self, client, user_base_creds, place):
 
-        url = '/place/%i/' % place.id
+        url = '/place/{}/'.format(place.id)
+
         request_data = {
             'type': 'clubbing',
             'description': 'This is a good club at the heart of Sidney.',
@@ -768,7 +771,7 @@ class TestLocationsOfInterest():
         assert data['location']['lng']
 
     @postgres_db
-    def test_edit_location_of_place(self, client, user_base_creds, user, place):
+    def test_edit_location_of_place(self, client, user_base_creds, place):
 
         url = '/place/%i/' % place.id
 
@@ -795,7 +798,11 @@ class TestLocationsOfInterest():
         assert data['location']['lng']
 
     @postgres_db
-    def test_trying_to_edit_place_that_user_is_not_owner(self, client, user_base_creds, user, random_place):
+    def test_trying_to_edit_place_that_user_is_not_owner(self, client, user_base_creds, random_place):
+
+        """
+        :type random_place: LocationsOfInterest
+        """
 
         url = '/place/{}/'.format(random_place.id)
         request_data = {
@@ -813,7 +820,9 @@ class TestLocationsOfInterest():
 
     # Delete
     @postgres_db
-    def test_delete_place(self, client, user_base_creds, user, place):
+    def test_delete_place(self, client, user_base_creds, place):
+        assert isinstance(place.id, int)
+
         url = '/place/%i/' % place.id
 
         assert LocationsOfInterest.objects.count() == 1
