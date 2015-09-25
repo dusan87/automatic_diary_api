@@ -649,31 +649,31 @@ class TestLocationsOfInterest():
         # assert data['location']['lat']
         # assert data['location']['lng']
 
-    # @postgres_db
-    # def test_create_place(self, client, user_base_creds, user, place_image):
-    #
-    # request_data = {
-    # 'lat': -43.341431,
-    #         'lng': 20.231123,
-    #         'type':'enjoying',
-    #         'description':'There is amazing view on Pariz.',
-    #         'image': place_image
-    #     }
-    #
-    #     response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
-    #
-    #     assert response.status_code == 201
-    #     assert response.data
-    #     data = response.data
-    #
-    #     assert data['id']
-    #     assert data['type'] == request_data['type']
-    #     assert data['image']
-    #     assert data['description']
-    #     assert data['created_at']
-    #     assert data['updated_at']
-    #     assert data['location']['lat']
-    #     assert data['location']['lng']
+    @postgres_db
+    def test_create_place(self, client, user_base_creds, user, place_image):
+
+        request_data = {
+            'lat': -43.341431,
+            'lng': 20.231123,
+            'type':'enjoying',
+            'description':'There is amazing view on Pariz.',
+            'image': place_image
+        }
+
+        response = client.post('/places/', data=request_data, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 201
+        assert response.data
+        data = response.data
+
+        assert data['id']
+        assert data['type'] == request_data['type']
+        assert data['image']
+        assert data['description']
+        assert data['created_at']
+        assert data['updated_at']
+        assert data['location']['lat']
+        assert data['location']['lng']
 
     # Get resources
     @postgres_db
