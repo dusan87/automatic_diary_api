@@ -5,7 +5,7 @@ from django import forms
 from django.contrib.auth.admin import UserCreationForm
 
 # project
-from models import User, UserLocation
+from models import User
 
 
 class UserCreateForm(UserCreationForm):
@@ -22,14 +22,3 @@ class UserCreateForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'country', 'birth_day', 'city', 'image', 'gender']
-
-
-class LocationCreateForm(forms.Form):
-
-    class Meta:
-        fields = ['lat','long']
-
-    def save(self):
-        data = self.cleaned_data
-        location = UserLocation(lat=data['lat'],long=data['long'])
-        location.save()

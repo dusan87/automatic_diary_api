@@ -9,9 +9,8 @@ from math import radians, cos,sin,asin,sqrt
 from django.core.serializers import serialize
 
 # project
-from models import (UserLocation,
-                    UsersInteractions,
-                    User)
+# from .models import (UsersInteractions,
+#                     User,)
 
 
 def distance(lon1,lat1,lon2,lat2):
@@ -51,6 +50,8 @@ def interaction(user, friend, interact_type, location, distance_km):
         interact[0].save(update_fields=['end_time'])
 
 
+
+
 def near_by(user,lon,lat):
 
     nearby = {'results': []}
@@ -60,7 +61,7 @@ def near_by(user,lon,lat):
     friends = json.loads(friends)
     if friends:
         for friend in friends:
-            location = UserLocation.objects.get(id=friend['fields']['location'])
+            location = 'temp' # UserLocation.objects.get(id=friend['fields']['location'])
             distance_km = distance(lon, lat, location.long, location.lat)
 
             interact_type = ''
@@ -78,3 +79,19 @@ def near_by(user,lon,lat):
 
     nearby_friend = json.dumps(nearby)
     return nearby_friend
+
+
+def check_distance(user_location, followings_locations):
+
+    near, together = [], []
+
+    for following in followings_locations:
+        dist = distance(user_location.location.lng, user_location.location.lat, following.location.lng, following.location.lat)
+
+        if dist < 3:
+            if dist <= 0.2:
+                together.append(following.user)
+            else:
+                near.append(following.user)
+
+    return near, together

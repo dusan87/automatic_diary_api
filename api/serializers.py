@@ -23,20 +23,44 @@ from api import consts
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
-# TODO: Create dynamic fields serializer
-class UserSerializer(serializers.ModelSerializer):
+class DynamicFieldsModelSerializer(serializers.ModelSerializer):
+    """
+    A ModelSerializer that takes an additional `fields` argument that
+    controls which fields should be displayed.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Don't pass the `fields` arg up to the superclass
+        fields = kwargs.pop('fields', None)
+
+        super(DynamicFieldsModelSerializer, self).__init__(*args, **kwargs)
+
+        if fields is not None:
+            # Drop any fields that are not specified in the `fields` argument.
+            allowed = set(fields)
+            existing = set(self.fields.keys())
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
+
+
+class UserSerializer(DynamicFieldsModelSerializer):
     follows = serializers.StringRelatedField(many=True)
-    # TODO: think about serializing places
+    id = serializers.CharField(required=False)
+    image = serializers.ImageField()
 
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name',
                   'phone', 'country', 'city',
                   'image', 'gender', 'birth_day',
-                  'follows', 'interactions')
+                  'follows')
 
 
 class LocationSerializer(serializers.ModelSerializer):
+    id = serializers.CharField()
+    lng = serializers.CharField()
+    lat = serializers.CharField()
+
     class Meta:
         model = Location
         fields = ('id', 'lng', 'lat')
@@ -57,6 +81,13 @@ class UsersLocationsSerializer(serializers.BaseSerializer):
     def to_internal_value(self, data):
         lat = data.get('lat')
         lng = data.get('lng')
+        updated_at = dt.utcnow()
+
+        # we just update `updated_at` attr in update method
+        if hasattr(self, 'partial') and self.partial:
+            return {
+                'updated_at': updated_at,
+            }
 
         if not lat:
             raise ValidationError({
@@ -73,6 +104,7 @@ class UsersLocationsSerializer(serializers.BaseSerializer):
                 'lat': lat,
                 'lng': lng
             },
+            'updated_at': updated_at,
             'user': self.context['user']
         }
 
@@ -80,6 +112,7 @@ class UsersLocationsSerializer(serializers.BaseSerializer):
         return {
             'location': LocationSerializer(obj.location).data,
             'created_at': obj.created_at.strftime(DATE_FORMAT),
+            'updated_at': obj.updated_at.strftime(DATE_FORMAT),
             'user': UserSerializer(obj.user).data
         }
 
@@ -89,13 +122,19 @@ class UsersLocationsSerializer(serializers.BaseSerializer):
         return UsersLocations.objects.create(location=location, **validated_data)
 
     def update(self, instance, validated_data):
-        pass
+
+        for key, value in validated_data.items():
+            if hasattr(instance, key):
+                setattr(instance, key, value)
+
+        instance.save()
+        return instance
 
 
 class InteractionsSerializer(serializers.BaseSerializer):
 
     def to_internal_value(self, data):
-        type_ = data.get('type')
+        type_of = data.get('type')
         partner_email = data.get('partner_email')
         phone = data.get('phone')
         lat = data.get('lat')
@@ -104,17 +143,17 @@ class InteractionsSerializer(serializers.BaseSerializer):
         partner_data = {'phone': phone} if phone else {'email': partner_email}
         user = self.context['user']
 
-        if not type_:
+        if not type_of:
             raise ValidationError({
                 'type': 'This field is required'
             })
 
-        if type_ not in dict(consts.INTERACTIONS):
+        if type_of not in dict(consts.INTERACTIONS):
             raise ValidationError({
                 'type': 'This field must have one of next values (call, sms, physical).'
             })
 
-        if not partner_email and type_ == consts.PHYSICAL:
+        if not partner_email and type_of == consts.PHYSICAL:
             raise ValidationError({
                 'partner_email': 'This field is required in case type is physical.'
             })
@@ -127,7 +166,7 @@ class InteractionsSerializer(serializers.BaseSerializer):
                     'partner_email': 'This field has invalid email format.'
                 })
 
-        if not phone and type_ in (consts.CALL, consts.SMS):
+        if not phone and type_of in (consts.CALL, consts.SMS):
             raise ValidationError({
                 'phone': 'This field is required in case type is either call or sms.'
             })
@@ -160,7 +199,7 @@ class InteractionsSerializer(serializers.BaseSerializer):
             })
 
         validated_data = {
-            'type_': type_,
+            'type_of': type_of,
             'location': {
                 'lat': lat,
                 'lng': lng
@@ -173,7 +212,7 @@ class InteractionsSerializer(serializers.BaseSerializer):
 
     def to_representation(self, obj):
         return {
-            'type': obj.type_,
+            'type': obj.type_of,
             'created_at': obj.created_at.strftime(DATE_FORMAT),
             'location': LocationSerializer(obj.location).data,
             'partner': UserSerializer(obj.partner).data,
@@ -189,40 +228,21 @@ class InteractionsSerializer(serializers.BaseSerializer):
         pass
 
 
-class UserRelatedField(serializers.RelatedField):
-    queryset = User.objects.all()
-
-    def to_internal_value(self, data):
-        return data
-
-    def to_representation(self, value):
-        return UserSerializer(value).data
-
-
-class TMPPlaceSerializer(serializers.ModelSerializer):
-    location = LocationSerializer()
-    user = UserRelatedField()
-
-    class Meta:
-        model = LocationsOfInterest
-        fields = ('id', 'type', 'description', 'image', 'updated_at', 'user', 'location', 'created_at')
-
-
 class PlaceSerializer(serializers.BaseSerializer):
 
     def to_internal_value(self, data):
         lat = data.get('lat')
         lng = data.get('lng')
-        type_ = data.get('type')
+        type_of = data.get('type')
         description = data.get('description')
         image = data.get('image', '')
         updated_at = dt.utcnow()
 
         if hasattr(self, 'partial') and self.partial:
 
-            if type_:
+            if type_of:
                 del data['type']
-                data.update({'type_': type_})
+                data.update({'type_of': type_of})
 
             if lat or lng:
                 location = {'lat': data.get('lat', self.instance.location.lat),
@@ -241,7 +261,7 @@ class PlaceSerializer(serializers.BaseSerializer):
                 'lng': 'This field is required.'
             })
 
-        if not type_:
+        if not type_of:
             raise ValidationError({
                 'type': 'This field is required.'
             })
@@ -252,7 +272,7 @@ class PlaceSerializer(serializers.BaseSerializer):
             })
 
         return {
-            'type_': type_,
+            'type_of': type_of,
             'location': {
                 'lat': lat,
                 'lng': lng
@@ -265,8 +285,8 @@ class PlaceSerializer(serializers.BaseSerializer):
 
     def to_representation(self, obj):
         return {
-            'id': obj.id,
-            'type': obj.type_,
+            'id': str(obj.id),
+            'type': obj.type_of,
             'description': obj.description,
             'image': obj.image.url,
             'updated_at': obj.updated_at.strftime(DATE_FORMAT),

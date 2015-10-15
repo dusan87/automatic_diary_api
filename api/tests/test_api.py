@@ -95,7 +95,7 @@ class TestUserAuth():
             'password2': 'pass'
         }
 
-        response = client.get('/validate/', params)
+        response = client.post('/validate/', params)
 
         data = response.data
 
@@ -111,7 +111,7 @@ class TestUserAuth():
             'password2': 'pass2'
         }
 
-        response = client.get('/validate/', params)
+        response = client.post('/validate/', params)
 
         data = response.data
 
@@ -127,7 +127,7 @@ class TestUserAuth():
             'password2': 'pass2'
         }
 
-        response = client.get('/validate/', params)
+        response = client.post('/validate/', params)
 
         data = response.data
 
@@ -143,7 +143,7 @@ class TestUserAuth():
             'password2': 'pass'
         }
 
-        response = client.get('/validate/', params)
+        response = client.post('/validate/', params)
 
         data = response.data
 
@@ -159,7 +159,7 @@ class TestUserAuth():
             'password2': ''
         }
 
-        response = client.get('/validate/', params)
+        response = client.post('/validate/', params)
 
         data = response.data
 
@@ -255,7 +255,7 @@ class TestLocationView():
 
         location = data['user_location']['location']
 
-        assert location['lat'] == param_data['lat'] and location['lng'] == param_data['lng']
+        assert location['lat'] == str(param_data['lat']) and location['lng'] == str(param_data['lng'])
         assert user.email == data['user_location']['user']['email']
 
     @postgres_db
@@ -280,39 +280,39 @@ class TestLocationView():
 
         assert response_data['user_location']['location']['id'] == data['user_location']['location']['id']
 
-    @postgres_db
-    def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds,
-                                                                                       user, followings_locations):
-        """
-            Store user location and get followings(friends) current locations that are at least updated in last 15mins
-            from request time.
-        """
-
-        param_data = {
-            'lat': 43.321321129,
-            'lng': 12.1982322
-        }
-
-        response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
-
-        assert response.status_code == 201
-
-        data = response.data
-        assert data
-        assert data['followings_locations']
-
-        locations = data['followings_locations']
-        time_limit = 15 * 60  # 15mins to secs
-        now = dt.utcnow()
-
-        for loc in locations:
-            assert loc['user']
-            assert loc['location']['lat']
-            assert loc['location']['lng']
-            assert loc['created_at']
-
-            date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
-            assert 0 < (now - date).total_seconds() <= time_limit  # lte 15mins all following locations
+    # @postgres_db
+    # def test_store_user_location_and_return_followings_locations_not_older_than_15mins(self, client, user_base_creds,
+    #                                                                                    user, followings_locations):
+    #     """
+    #         Store user location and get followings(friends) current locations that are at least updated in last 15mins
+    #         from request time.
+    #     """
+    #
+    #     param_data = {
+    #         'lat': 43.321321129,
+    #         'lng': 12.1982322
+    #     }
+    #
+    #     response = client.post('/location/', data=param_data, HTTP_AUTHORIZATION=user_base_creds)
+    #
+    #     assert response.status_code == 201
+    #
+    #     data = response.data
+    #     assert data
+    #     assert data['followings_locations']
+    #
+    #     locations = data['followings_locations']
+    #     time_limit = 15 * 60  # 15mins to secs
+    #     now = dt.utcnow()
+    #
+    #     for loc in locations:
+    #         assert loc['user']
+    #         assert loc['location']['lat']
+    #         assert loc['location']['lng']
+    #         assert loc['created_at']
+    #
+    #         date = dt.strptime(loc['created_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
+    #         assert 0 < (now - date).total_seconds() <= time_limit  # lte 15mins all following locations
 
     @postgres_db
     def test_user_followings_locations_updated_at_least_in_last_15mins(self, client, user_base_creds, user,
@@ -389,6 +389,18 @@ class TestLocationView():
 
             # i +=1
 
+    @postgres_db
+    def test_update_user_location(self, client, user_base_creds, user, user_locations):
+        user_location_id = user_locations[0].id
+
+        response = client.put('/location/%i/' % user_location_id, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 200
+        assert response.data
+
+        data = response.data
+
+        assert data['id'] == str(user_location_id)
 
 class TestUsersInteractions():
     """
@@ -607,6 +619,36 @@ class TestUsersInteractions():
         assert data
         assert data['partner'] == "There is no such a email or phone number of user's followings."
 
+    @postgres_db
+    def test_filter_top_n_spend_time_With_friend(self, client, user_base_creds, user, interactions):
+
+        params = {"type": "top_friends"}
+        response = client.get('/interact/', data=params, HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 200
+        assert response.data
+
+        assert 'top_friends' in response.data
+
+class TestTopPlaces():
+
+    @postgres_db
+    def test_top_user_places(self, client, user_base_creds, user, user_places):
+        response = client.get('/top_user_places/', HTTP_AUTHORIZATION=user_base_creds)
+
+        assert response.status_code == 200
+        assert response.data
+
+        assert 'top_places' in response.data
+
+    @postgres_db
+    def test_top_places(self, client, user_base_creds, user, user_places):
+        response = client.get('/top_places/')
+
+        assert response.status_code == 200
+        assert response.data
+
+        assert 'top_places' in response.data
 
 class TestLocationsOfInterest():
     # creation
@@ -690,7 +732,7 @@ class TestLocationsOfInterest():
 
         data = response.data
 
-        assert data['id'] == place.id
+        assert data['id'] == str(place.id)
         assert data['type']
         assert data['image']
         assert data['description']
@@ -795,7 +837,7 @@ class TestLocationsOfInterest():
         assert data['description']
         assert data['created_at']
         assert data['updated_at']
-        assert data['location']['lat'] == request_data['lat']
+        assert data['location']['lat'] == str(request_data['lat'])
         assert data['location']['lng']
 
     @postgres_db
@@ -807,7 +849,7 @@ class TestLocationsOfInterest():
 
         url = '/place/{}/'.format(random_place.id)
         request_data = {
-            'type_': 'swimming',
+            'type_of': 'swimming',
             'description': 'This is a good swimming club at the heart of Sidney.'
         }
 

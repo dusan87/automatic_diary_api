@@ -7,7 +7,8 @@ from api.api import CreateUser, AuthView
 from api.models import (User,
                         Location,
                         UsersLocations,
-                        LocationsOfInterest)
+                        LocationsOfInterest,
+                        UsersInteractions)
 from datetime import datetime as dt
 
 import os
@@ -58,7 +59,7 @@ def user_credentials():
 def user_base_creds():
     """User credentials in format that suites rest framework authorization"""
 
-    return  "Basic " + base64.b64encode('anonymous@gmail.com:pass')
+    return "Basic " + base64.b64encode('anonymous@gmail.com:pass')
 
 @pytest.fixture
 def user_base_creds_invalid():
@@ -111,6 +112,20 @@ def users(user_data, image_path, user, user_with_image):
 
     return users
 
+@pytest.fixture()
+def interactions(user, users, locations):
+    interacts = []
+    for i in range(5):
+        second_user = random.choice(users)
+        location = random.choice(locations)
+        if i%2:
+           interact = UsersInteractions.objects.create(user=second_user, partner=user, type_of="physical",location=location)
+           interacts.append(interact)
+        else:
+           interact = UsersInteractions.objects.create(user=user, partner=second_user, type_of="physical",location=location )
+        interacts.append(interact)
+    return interacts
+
 @pytest.fixture
 def following_user(user,user_data):
 
@@ -134,9 +149,10 @@ def locations():
 @pytest.fixture
 def user_locations(user,locations):
 
-    user_locations = [UsersLocations(user=user, location=location).save() for location in locations]
+    for location in locations:
+        UsersLocations(user=user, updated_at=dt.utcnow(), location=location).save()
 
-    return user_locations
+    return user.my_locations
 
 @pytest.fixture
 def followings_locations(users, locations):
@@ -191,7 +207,7 @@ def create_place(location, user, image, description=None, type_of=None):
     type_ = type_of if type_of else random.choice(types)
 
     place = LocationsOfInterest.objects.create(description=desc,
-                                               type_=type_,
+                                               type_of=type_,
                                                updated_at=dt.utcnow(),
                                                user=user,
                                                location=location)

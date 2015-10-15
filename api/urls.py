@@ -12,11 +12,13 @@ urlpatterns = [
     url(r'^validate/$', api.UserValidationView.as_view()),
     url(r'^users/$', api.ListUsersView.as_view()),
     url(r'^location/$', api.LocationView.as_view()),
+    url(r'^location/(?P<pk>[0-9]+)/$', api.LocationView.as_view()),
     url(r'^follow/(?P<pk>[0-9]+)/$', api.FollowView.as_view()),
     url(r'^interact/$', api.InteractionView.as_view()),
-    url(r'^follow/(?P<pk>[0-9]+)/$', api.FollowView.as_view()),
     url(r'^places/$', api.PlacesView.as_view()),
     url(r'^place/(?P<pk>[0-9]+)/$', api.PlaceView.as_view()),
+    url(r'^top_user_places/$', api.TopUserPlacesView.as_view()),
+    url(r'^top_places/$', api.TopPlacesView.as_view()),
 
     # Old endpoints
     url(r'^login_user/$', 'api.views.login_user'),

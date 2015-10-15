@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 # builtins
-from datetime import datetime as dt
+from datetime import timedelta, datetime as dt
 
 # django
 from django.utils.translation import ugettext_lazy as _
@@ -11,7 +11,8 @@ from django.http import Http404
 # rest framework
 from rest_framework import (generics,
                             permissions,
-                            status)
+                            status,
+                            mixins,)
 from rest_framework.authentication import (BasicAuthentication,
                                            SessionAuthentication)
 from rest_framework.views import APIView
@@ -22,10 +23,16 @@ from .serializers import (UserSerializer,
                           UsersLocationsSerializer,
                           InteractionsSerializer,
                           PlaceSerializer)
+
 from .models import (User,
                      UsersLocations,
-                     LocationsOfInterest)
+                     LocationsOfInterest,
+                     UsersInteractions,
+                     Notifications)
+
 from .permissions import (IsOwnerOrReadOnly, )
+
+from .map_methods import distance, check_distance
 
 
 class CreateUser(generics.CreateAPIView):
@@ -33,6 +40,10 @@ class CreateUser(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = (permissions.AllowAny,)
 
+    def perform_create(self, serializer):
+        user = serializer.save()
+        user.set_password(self.request.data['password'])
+        user.save()
 
 class AuthView(APIView):
     authentication_classes = (SessionAuthentication, BasicAuthentication)
@@ -56,10 +67,10 @@ class AuthView(APIView):
 class UserValidationView(APIView):
     permission_classes = (permissions.AllowAny,)
 
-    def get(self, request):
-        email = request.query_params.get('email')
-        pass1 = request.query_params.get('password1')
-        pass2 = request.query_params.get('password2')
+    def post(self, request):
+        email = request.data.get('email')
+        pass1 = request.data.get('password1')
+        pass2 = request.data.get('password2')
 
         try:
             user = User.objects.get(email=email)
@@ -108,7 +119,7 @@ class FollowView(APIView):
         @param
     """
 
-    authentication_classes = (SessionAuthentication, BasicAuthentication)
+    authentication_classes = (BasicAuthentication, )
     permission_classes = (permissions.IsAuthenticated,)
 
     def put(self, request, pk):
@@ -116,7 +127,6 @@ class FollowView(APIView):
             @pk: primary key of follower that has been followed
                  by authenticated user
         """
-
         try:
             following = User.objects.get(pk=pk)
         except User.DoesNotExist:
@@ -133,8 +143,10 @@ class FollowView(APIView):
 
 
 class LocationView(APIView):
+
     authentication_classes = (SessionAuthentication, BasicAuthentication)
     permission_classes = (permissions.IsAuthenticated,)
+
 
     def IsUpdated(self, created_at):
         """
@@ -152,6 +164,13 @@ class LocationView(APIView):
             dist = (dt.utcnow() - created_at.replace(tzinfo=None))
             return 0 < dist.total_seconds() <= time_limit
 
+    def get_object(self, pk):
+
+        try:
+            return UsersLocations.objects.get(pk=pk)
+        except UsersLocations.DoesNotExist:
+            Http404
+
     def get_queryset(self, ):
         """
             get user's following friends current locations
@@ -160,17 +179,17 @@ class LocationView(APIView):
         assert self.request.user
 
         user = self.request.user
-        locations = []
-
-        for following in user.follows.all():
+        following_locations = []
+        user_followings = user.follows.all()
+        for following in user_followings:
             try:
                 user_location = UsersLocations.objects.filter(user=following)[:1][0]
-                if self.IsUpdated(user_location.created_at):
-                    locations.append(user_location)
+                if self.IsUpdated(user_location.updated_at):
+                    following_locations.append(user_location)
             except IndexError:
                 continue
 
-        return locations
+        return following_locations
 
     def get(self, request):
         """
@@ -182,7 +201,9 @@ class LocationView(APIView):
         followings_locations = self.get_queryset()
 
         return Response({
-            'followings_locations': UsersLocationsSerializer(followings_locations, many=True).data
+            'followings_locations': UsersLocationsSerializer(followings_locations, many=True).data,
+            'followings_places': PlaceSerializer(request.user.following_places, many=True).data,
+            'user_places': PlaceSerializer(request.user.my_places, many=True).data
         })
 
     def post(self, request):
@@ -191,18 +212,77 @@ class LocationView(APIView):
             - give back all user's following friends current locations
         """
 
-        users_location = self.get_queryset()
+        followings_locations = self.get_queryset()
+
         data = request.data
 
         serializer = UsersLocationsSerializer(data=data, context={'user': request.user})
+        serializer.is_valid(raise_exception=True)
+        location = serializer.save()
 
-        if serializer.is_valid():
-            location = serializer.save()
+        # TODO: There are no tests for this part of code.
+        # check if there is some user to notify them
+        near_followings, together_with = check_distance(location, followings_locations)
 
-            return Response({
-                'user_location': UsersLocationsSerializer(location).data,
-                'followings_locations': UsersLocationsSerializer(users_location, many=True).data
-            }, status=status.HTTP_201_CREATED)
+        #store together interactions
+        UsersInteractions.objects.bulk_create(
+            [UsersInteractions(user=request.user, partner=partner, location=location, type_of='physical')
+             for partner in together_with])
+
+        # express already notified in last 24h
+        for following in near_followings:
+            filtered = Notifications.objects.filter(from_notified=request.user, to_notified=following,
+                                         created_at__gte=dt.utcnow()-timedelta(days=1))
+
+            # TODO: CHECK THIS
+            if len(filtered):
+                near_followings.pop(following)
+
+        #mark friends as notified
+        Notifications.objects.bulk_create([Notifications(from_notified=request.user, to_notified=following)
+                                           for following in near_followings])
+
+        return Response({
+            'user_location': UsersLocationsSerializer(location).data,
+            'any_near': 'yes' if len(near_followings) > 0 else 'no'
+        }, status=status.HTTP_201_CREATED)
+
+    def put(self, request, pk, *args, **kwargs):
+        location = self.get_object(pk)
+        followings_locations = self.get_queryset()
+
+        serializer = UsersLocationsSerializer(location, data={}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        location = serializer.save()
+
+        # TODO: There are no tests for this part of code.
+        # check if there is some user to notify them
+        near_followings, together_with = check_distance(location, followings_locations)
+
+        #store together interactions
+        UsersInteractions.objects.bulk_create(
+            [UsersInteractions(user=request.user, partner=partner, location=location, type_of='physical')
+             for partner in together_with])
+
+        # express already notified in last 24h
+        for following in near_followings:
+            filtered = Notifications.objects.filter(from_notified=request.user, to_notified=following,
+                                         created_at__gte=dt.utcnow()-timedelta(days=1))
+
+            # TODO: CHECK THIS
+            if len(filtered):
+                near_followings.pop(following)
+
+        #mark friends as notified
+        Notifications.objects.bulk_create([Notifications(from_notified=request.user, to_notified=following)
+                                           for following in near_followings])
+
+        return Response({
+            'user_location': UsersLocationsSerializer(location).data,
+            'any_near': 'yes' if len(near_followings) > 0 else 'no'
+        }, status=status.HTTP_201_CREATED)
+
+
 
 
 class InteractionView(APIView):
@@ -226,10 +306,67 @@ class InteractionView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def get(self, request, *args, **kwargs):
+        limit = request.query_params.get("limit", None)
+        top_friends = self.request.user.get_top_friends(limit=limit)
+
+        return Response(
+            {"top_friends": [{"count": count, "friends": UserSerializer(friend).data}
+                             for count,friend in top_friends]}
+        )
+
+
+class TopUserPlacesView(APIView):
+    authentication_classes = (SessionAuthentication, BasicAuthentication)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PlaceSerializer
+
+    def get(self, request):
+        limit = request.query_params.get("limit")
+        top_places = request.user.get_top_places(limit=limit)
+        return Response({
+            "top_places": [{"count": count, "place": PlaceSerializer(place).data}
+                           for count, place in top_places]
+        })
+
+
+class TopPlacesView(APIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = PlaceSerializer
+
+    def get_top_places_by_interactions(self,):
+        limit = self.request.query_params.get("limit")
+
+        interactions = UsersInteractions.objects.all()
+        places = LocationsOfInterest.objects.all()
+
+        top_by_interactions = []
+
+        for place in places:
+            interaction_counter = 0
+            for interaction in interactions:
+                _distance = distance(place.location.lng, place.location.lat,
+                                 interaction.location.lng, interaction.location.lat)
+
+                if _distance <= 0.2:
+                    interaction_counter +=1
+
+            if interaction_counter:
+                top_by_interactions.append((interaction_counter, place))
+
+        return sorted(top_by_interactions, reverse=True)[:limit]
+
+    def get(self, request):
+        top_places_by_interactions = self.get_top_places_by_interactions()
+
+        return Response({
+            "top_places": [{"count": count, "place": PlaceSerializer(place).data}
+                           for count, place in top_places_by_interactions]
+        })
 
 class PlacesView(generics.ListCreateAPIView):
     """
-    By convinient we call locations of interest as 'Places'
+    By convenient we call locations of interest as 'Places'
 
     - List locations of interest of current user and all his followings
     """
